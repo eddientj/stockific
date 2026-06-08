@@ -1,0 +1,110 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* ─────────────────────────────────────────────────────────────
+   Stockific design tokens
+   Single source of truth — all values from the style guide.
+   ───────────────────────────────────────────────────────────── */
+
+@theme static {
+  /* Brand teal */
+  --color-brand-50:  #E0F4F4;
+  --color-brand-100: #C2E8E8;
+  --color-brand-200: #99D0D0;
+  --color-brand-300: #5FBFBF;
+  --color-brand-400: #00A89A;  /* hover  */
+  --color-brand-500: #008080;  /* primary */
+  --color-brand-600: #006666;  /* active  */
+  --color-brand-700: #004D4D;
+  --color-brand-800: #003333;
+  --color-brand-900: #001F1F;
+  --color-brand-950: #0D1F1F;  /* header  */
+
+  /* Status — full scales so UBadge/UAlert render their tints correctly */
+  --color-success-50:  #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-400: #4ade80;
+  --color-success-500: #16A34A;
+  --color-success-600: #16A34A;
+  --color-success-700: #15803d;
+
+  --color-warning-50:  #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #D97706;
+  --color-warning-600: #D97706;
+  --color-warning-700: #b45309;
+
+  --color-error-50:  #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-400: #f87171;
+  --color-error-500: #DC2626;
+  --color-error-600: #DC2626;
+  --color-error-700: #b91c1c;
+
+  --color-info-50:  #f0f9ff;
+  --color-info-100: #e0f2fe;
+  --color-info-400: #38bdf8;
+  --color-info-500: #0284C7;
+  --color-info-600: #0284C7;
+  --color-info-700: #0369a1;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Override Nuxt UI semantic vars
+   These flow into every component that reads --ui-* vars.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* --ui-bg is Nuxt UI's DEFAULT surface (cards, inputs).
+     Page background is set separately on body / layout wrappers. */
+  --ui-bg:               #FFFFFF;   /* card / surface            */
+  --ui-bg-muted:         #F5FAFA;   /* page background / muted   */
+  --ui-bg-elevated:      #EDF6F6;   /* hover tint for ghost buttons */
+  --ui-bg-accented:      #E0F4F4;   /* active/selected tint      */
+  --ui-bg-inverted:      #0D1F1F;   /* dark surfaces             */
+
+  --ui-border:           #E5EDED;
+  --ui-border-muted:     #E5EDED;
+  --ui-border-accented:  #008080;
+
+  --ui-text:             #0D1F1F;
+  --ui-text-muted:       #666666;
+  --ui-text-highlighted: #0D1F1F;
+  --ui-text-toned:       #008080;
+  --ui-text-inverted:    #FFFFFF;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Dark mode overrides
+   ───────────────────────────────────────────────────────────── */
+.dark {
+  --ui-bg:               #162828;
+  --ui-bg-muted:         #0D1F1F;
+  --ui-bg-elevated:      #1E3333;
+  --ui-bg-inverted:      #E0F4F4;
+
+  --ui-border:           #2A4040;
+  --ui-border-muted:     #2A4040;
+  --ui-border-accented:  #008080;
+
+  --ui-text:             #E0F4F4;
+  --ui-text-muted:       #9BB8B8;
+  --ui-text-highlighted: #FFFFFF;
+  --ui-text-toned:       #00A89A;
+  --ui-text-inverted:    #0D1F1F;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Global base
+   ───────────────────────────────────────────────────────────── */
+html { font-family: var(--font-sans); }
+body {
+  background: #F5FAFA;
+  color: var(--ui-text);
+}
+.dark body,
+.dark {
+  background: #0D1F1F;
+}
