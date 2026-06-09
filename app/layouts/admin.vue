@@ -1,8 +1,9 @@
 <script setup lang="ts">
 const nav = [
-  { to: '/admin/products', label: 'Products' },
-  { to: '/admin/orders',   label: 'Orders'   },
-  { to: '/admin/reports',  label: 'Reports'  },
+  { to: '/admin',          label: 'Dashboard', exact: true  },
+  { to: '/admin/products', label: 'Products',  exact: false },
+  { to: '/admin/orders',   label: 'Orders',    exact: false },
+  { to: '/admin/reports',  label: 'Reports',   exact: false },
 ]
 
 const colorMode = useColorMode()
@@ -31,6 +32,8 @@ function toggleTheme() {
             v-for="item in nav"
             :key="item.to"
             :to="item.to"
+            :exact-active-class="item.exact ? 'router-link-active' : undefined"
+            :active-class="item.exact ? 'no-match' : undefined"
             class="px-3 py-1.5 rounded-md text-sm transition-colors no-underline nav-link"
           >
             {{ item.label }}
