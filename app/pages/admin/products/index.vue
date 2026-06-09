@@ -5,6 +5,8 @@ import type { ProductRow, ExportColumn } from '~/types'
 definePageMeta({ layout: 'admin' })
 
 type Product = ProductRow
+// Enriched row passed to the table — adds computed stock fields for sorting
+type ProductTableRow = Product & { available: number; on_hold: number }
 
 const toast = useAppToast()
 
@@ -14,23 +16,23 @@ const { data: categories } = await useFetch<{ id: string; name: string }[]>('/ap
 
 // ── Filters ───────────────────────────────────────────────────
 const filters = reactive({
-  categoryId: null as string | null,
-  status:     'all' as 'all' | 'active' | 'inactive',
-  stock:      'all' as 'all' | 'instock' | 'low' | 'out',
+  categoryIds: [] as string[],
+  status:      'all' as 'all' | 'active' | 'inactive',
+  stock:       'all' as 'all' | 'instock' | 'low' | 'out',
 })
 
 const activeFilterCount = computed(() =>
-  (filters.categoryId ? 1 : 0) +
+  (filters.categoryIds.length > 0 ? 1 : 0) +
   (filters.status !== 'all' ? 1 : 0) +
-  (filters.stock !== 'all' ? 1 : 0)
+  (filters.stock  !== 'all' ? 1 : 0)
 )
 
 const filteredProducts = computed(() => {
   let rows = allProducts.value ?? []
-  if (filters.categoryId) rows = rows.filter(p => p.category_id === filters.categoryId)
+  if (filters.categoryIds.length > 0)
+    rows = rows.filter(p => filters.categoryIds.includes(p.category_id ?? ''))
   if (filters.status === 'active')   rows = rows.filter(p => p.is_active)
   if (filters.status === 'inactive') rows = rows.filter(p => !p.is_active)
-  const liveStock = (p: Product) => p.variants.reduce((s, v) => s + (v.stock_quantity - v.stock_on_hold), 0)
   if (filters.stock === 'instock') rows = rows.filter(p => liveStock(p) > 0)
   if (filters.stock === 'low')     rows = rows.filter(p => liveStock(p) > 0 && liveStock(p) < 5)
   if (filters.stock === 'out')     rows = rows.filter(p => liveStock(p) === 0)
@@ -38,9 +40,9 @@ const filteredProducts = computed(() => {
 })
 
 function resetFilters() {
-  filters.categoryId = null
+  filters.categoryIds = []
   filters.status = 'all'
-  filters.stock = 'all'
+  filters.stock  = 'all'
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -50,15 +52,24 @@ const liveStock = (p: any): number => (p.variants ?? []).reduce((s: number, v: a
 const onHold    = (p: any): number => (p.variants ?? []).reduce((s: number, v: any) => s + v.stock_on_hold, 0)
 const ringgit   = (n: number)  => `RM ${Number(n).toFixed(2)}`
 
+// ── Table data (enriched with computed sort fields) ───────────
+const tableData = computed((): ProductTableRow[] =>
+  filteredProducts.value.map(p => ({
+    ...p,
+    available: liveStock(p),
+    on_hold:   onHold(p),
+  }))
+)
+
 // ── Table columns ─────────────────────────────────────────────
-const columns: TableColumn<Product>[] = [
-  { accessorKey: 'name',      header: 'Product'   },
-  { accessorKey: 'category',  header: 'Category'  },
-  { accessorKey: 'price',     header: 'Price'     },
-  { accessorKey: 'available', header: 'Available' },
-  { accessorKey: 'on_hold',   header: 'On Hold'   },
-  { accessorKey: 'status',    header: 'Status'    },
-  { id: 'actions',            header: ''          },
+const columns: TableColumn<ProductTableRow>[] = [
+  { accessorKey: 'name',      header: 'Product',   enableSorting: true  },
+  { accessorKey: 'category',  header: 'Category',  enableSorting: false },
+  { accessorKey: 'price',     header: 'Price',     enableSorting: true  },
+  { accessorKey: 'available', header: 'Available', enableSorting: true  },
+  { accessorKey: 'on_hold',   header: 'On Hold',   enableSorting: true  },
+  { accessorKey: 'status',    header: 'Status',    enableSorting: false },
+  { id: 'actions',            header: ''           },
 ]
 
 const exportColumns: ExportColumn[] = [
@@ -72,14 +83,14 @@ const exportColumns: ExportColumn[] = [
 ]
 
 const exportData = computed(() =>
-  filteredProducts.value.map(p => ({
+  tableData.value.map(p => ({
     id:          p.id,
     name:        p.name,
     description: p.description ?? '',
     category:    p.categories?.name ?? '',
     price:       Number(p.price).toFixed(2),
-    stock:       liveStock(p),
-    on_hold:     onHold(p),
+    stock:       p.available,
+    on_hold:     p.on_hold,
     status:      p.is_active ? 'Listed' : 'Unlisted',
   }))
 )
@@ -196,7 +207,7 @@ function handleImport(rows: Record<string, unknown>[]) {
 
     <AppDataTable
       :columns="columns"
-      :data="filteredProducts"
+      :data="tableData"
       :loading="pending"
       create-label="New product"
       search-field="name"
@@ -250,13 +261,13 @@ function handleImport(rows: Record<string, unknown>[]) {
       </template>
 
       <template #available-cell="{ row }">
-        <span :class="liveStock(row.original) < 5 ? 'text-warning-600 font-medium' : ''">
-          {{ liveStock(row.original) }}
+        <span :class="row.original.available < 5 ? 'text-warning-600 font-medium' : ''">
+          {{ row.original.available }}
         </span>
       </template>
 
       <template #on_hold-cell="{ row }">
-        <span class="text-(--ui-text-muted)">{{ onHold(row.original) }}</span>
+        <span class="text-(--ui-text-muted)">{{ row.original.on_hold }}</span>
       </template>
 
       <template #status-cell="{ row }">
@@ -310,9 +321,14 @@ function handleImport(rows: Record<string, unknown>[]) {
     >
       <div class="space-y-5">
         <UFormField label="Category" name="category">
-          <USelect
-            v-model="filters.categoryId"
-            :items="[{ label: 'All categories', value: null }, ...(categories ?? []).map(c => ({ label: c.name, value: c.id }))]"
+          <USelectMenu
+            v-model="filters.categoryIds"
+            :items="(categories ?? []).map(c => ({ label: c.name, value: c.id }))"
+            multiple
+            searchable
+            searchable-placeholder="Search categories…"
+            placeholder="All categories"
+            value-key="value"
             class="w-full"
           />
         </UFormField>

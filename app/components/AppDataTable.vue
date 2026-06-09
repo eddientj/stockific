@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="TRow extends { id: string }">
+import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { ExportColumn } from '~/types'
 
@@ -39,19 +40,39 @@ const searched = computed(() => {
   )
 })
 
+// ── Sorting ────────────────────────────────────────────────
+type SortEntry = { id: string; desc: boolean }
+const sorting = ref<SortEntry[]>([])
+
+const sorted = computed(() => {
+  const [s] = sorting.value
+  if (!s) return searched.value
+  return [...searched.value].sort((a, b) => {
+    const av = (a as Row)[s.id]
+    const bv = (b as Row)[s.id]
+    if (typeof av === 'number' && typeof bv === 'number')
+      return s.desc ? bv - av : av - bv
+    return s.desc
+      ? String(bv ?? '').localeCompare(String(av ?? ''))
+      : String(av ?? '').localeCompare(String(bv ?? ''))
+  })
+})
+
 // ── Pagination ─────────────────────────────────────────────
 const PAGE_SIZE = 50
 const page = ref(1)
-const totalPages = computed(() => Math.max(1, Math.ceil(searched.value.length / PAGE_SIZE)))
+const totalPages = computed(() => Math.max(1, Math.ceil(sorted.value.length / PAGE_SIZE)))
 const paged = computed(() => {
   const start = (page.value - 1) * PAGE_SIZE
-  return searched.value.slice(start, start + PAGE_SIZE)
+  return sorted.value.slice(start, start + PAGE_SIZE)
 })
 
 watch([search, () => props.data], () => {
   page.value = 1
   selectedIds.value.clear()
 })
+
+watch(sorting, () => { page.value = 1 })
 
 const tableTop = ref<HTMLElement>()
 
@@ -81,10 +102,47 @@ function toggleRow(id: string) {
   else                           selectedIds.value.add(id)
 }
 
-// ── Columns (prepend checkbox) ─────────────────────────────
+// ── Columns (prepend checkbox + inject sort buttons) ───────
+// resolveComponent must be called in setup scope (not inside computed getter)
+const UIconComp = resolveComponent('UIcon')
+
 const allColumns = computed<TableColumn<TRow>[]>(() => [
   { id: '_select', header: ' ', size: 40 } as TableColumn<TRow>,
-  ...props.columns,
+  ...props.columns.map(col => {
+    if (!col.enableSorting) return col as TableColumn<TRow>
+    const label = typeof col.header === 'string' ? col.header : ''
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const colId: string = (col as any).accessorKey ?? col.id ?? ''
+    return {
+      ...col,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      header: ({ column }: any) => {
+        const s = sorting.value.find(e => e.id === colId)
+        const icon = s?.desc
+          ? 'i-lucide-arrow-down-narrow-wide'
+          : s
+            ? 'i-lucide-arrow-up-narrow-wide'
+            : 'i-lucide-arrow-up-down'
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: 'flex items-center gap-1.5 group outline-none',
+            onClick: column.getToggleSortingHandler(),
+          },
+          [
+            h('span', label),
+            h(UIconComp, {
+              name: icon,
+              class: s
+                ? 'size-3.5 text-(--ui-text-highlighted)'
+                : 'size-3.5 text-(--ui-text-muted) opacity-30 group-hover:opacity-70 transition-opacity',
+            }),
+          ],
+        )
+      },
+    } as TableColumn<TRow>
+  }),
 ])
 
 const parentSlots = useSlots()
@@ -228,7 +286,13 @@ function bulkDelete() {
       <div v-if="loading" class="py-16 text-center text-(--ui-text-muted) text-sm">Loading…</div>
 
       <!-- ── Table ────────────────────────────────── -->
-      <UTable v-else :columns="allColumns" :data="paged">
+      <UTable
+        v-else
+        :columns="allColumns"
+        :data="paged"
+        v-model:sorting="sorting"
+        :sorting-options="{ manualSorting: true }"
+      >
 
         <!-- Checkbox header -->
         <template #_select-header>
@@ -265,11 +329,11 @@ function bulkDelete() {
         class="flex items-center justify-between px-4 py-3 border-t border-(--ui-border)"
       >
         <p class="text-xs text-(--ui-text-muted)">
-          {{ searched.length }} items · page {{ page }} of {{ totalPages }}
+          {{ sorted.length }} items · page {{ page }} of {{ totalPages }}
         </p>
         <UPagination
           :page="page"
-          :total="searched.length"
+          :total="sorted.length"
           :items-per-page="PAGE_SIZE"
           size="sm"
           @update:page="goToPage"
