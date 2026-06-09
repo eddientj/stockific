@@ -1,9 +1,11 @@
 <script setup lang="ts">
 const nav = [
-  { to: '/admin',          label: 'Dashboard', exact: true  },
-  { to: '/admin/products', label: 'Products',  exact: false },
-  { to: '/admin/orders',   label: 'Orders',    exact: false },
-  { to: '/admin/reports',  label: 'Reports',   exact: false },
+  { to: '/admin',           label: 'Dashboard', exact: true  },
+  { to: '/admin/products',  label: 'Products',  exact: false },
+  { to: '/admin/orders',    label: 'Orders',    exact: false },
+  { to: '/admin/customers', label: 'Customers', exact: false },
+  { to: '/admin/invoices',  label: 'Invoices',  exact: false },
+  { to: '/admin/reports',   label: 'Reports',   exact: false },
 ]
 
 const colorMode = useColorMode()

@@ -63,3 +63,80 @@ export type ProductPayload = {
   is_active: boolean
   variants: VariantPayload[]
 }
+
+// ── Customer ──────────────────────────────────────────────────
+
+export type CustomerRow = {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  address: string | null
+  city: string | null
+  postcode: string | null
+  notes: string | null
+  created_at: string
+}
+
+export type CustomerPayload = {
+  name: string
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  city?: string | null
+  postcode?: string | null
+  notes?: string | null
+}
+
+// ── Invoice ───────────────────────────────────────────────────
+
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+
+export type InvoiceItemRow = {
+  id: string
+  invoice_id: string
+  description: string
+  qty: number
+  unit_price: number
+  subtotal: number
+}
+
+export type InvoiceRow = {
+  id: string
+  invoice_number: string
+  customer_id: string | null
+  customer_name: string | null
+  issue_date: string
+  due_date: string | null
+  status: InvoiceStatus
+  subtotal: number
+  tax_rate: number
+  discount: number
+  total: number
+  notes: string | null
+  payment_terms: string | null
+  created_at: string
+  updated_at: string
+  customers: Pick<CustomerRow, 'name' | 'email'> | null
+  invoice_items: InvoiceItemRow[]
+}
+
+export type InvoiceItemPayload = {
+  id?: string
+  description: string
+  qty: number
+  unit_price: number
+}
+
+export type InvoicePayload = {
+  customer_id?: string | null
+  customer_name?: string | null
+  issue_date: string
+  due_date?: string | null
+  status?: InvoiceStatus
+  tax_rate?: number
+  discount?: number
+  notes?: string | null
+  payment_terms?: string | null
+  items: InvoiceItemPayload[]
+}

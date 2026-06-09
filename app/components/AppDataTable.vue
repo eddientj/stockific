@@ -147,45 +147,43 @@ const allColumns = computed<TableColumn<TRow>[]>(() => [
 
 const parentSlots = useSlots()
 
-// ── Export (SheetJS) ──────────────────────────────────────
+// ── Export / Import (via useXlsx) ─────────────────────────
+const { exportSheet, importSheet } = useXlsx()
+
 async function handleExport() {
-  const XLSX = await import('xlsx')
-  const cols = props.exportColumns ?? []
-  const pool = props.exportData ?? props.data
+  const cols   = props.exportColumns ?? []
+  const pool   = props.exportData ?? props.data
   const source = selectedIds.value.size > 0
     ? pool.filter(r => selectedIds.value.has(r.id))
     : pool
   const rows = source.map(r =>
     Object.fromEntries(cols.map(c => [c.label, (r as Row)[c.key]]))
   )
-  const ws = XLSX.utils.json_to_sheet(rows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Data')
-  XLSX.writeFile(wb, `${props.exportFilename ?? 'export'}.xlsx`)
+  await exportSheet(rows, props.exportFilename ?? 'export')
 }
 
-// ── Import (SheetJS) ──────────────────────────────────────
 const importInput = ref<HTMLInputElement>()
 
 async function handleImportFile(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
-  const XLSX = await import('xlsx')
-  const buf = await file.arrayBuffer()
-  const wb = XLSX.read(buf)
-  const ws = wb.Sheets[wb.SheetNames[0] ?? '']
-  if (!ws) return
-  const rows = XLSX.utils.sheet_to_json<Row>(ws)
+  const rows = await importSheet<Row>(file)
   emit('import', rows)
   ;(e.target as HTMLInputElement).value = ''
 }
 
 // ── Bulk delete ────────────────────────────────────────────
+const deleteConfirmOpen = ref(false)
+
 function bulkDelete() {
   if (!selectedIds.value.size) return
-  if (!confirm(`Delete ${selectedIds.value.size} item(s)? This cannot be undone.`)) return
+  deleteConfirmOpen.value = true
+}
+
+function confirmBulkDelete() {
   emit('bulk-delete', [...selectedIds.value])
   selectedIds.value.clear()
+  deleteConfirmOpen.value = false
 }
 </script>
 
@@ -341,6 +339,22 @@ function bulkDelete() {
       </div>
 
     </UCard>
+
+    <!-- ── Bulk delete confirmation ───────────────────── -->
+    <UModal v-model:open="deleteConfirmOpen" title="Confirm deletion" :ui="{ footer: 'justify-end' }">
+      <template #body>
+        <p class="text-sm text-(--ui-text-muted)">
+          You're about to permanently delete
+          <strong class="text-(--ui-text-highlighted)">{{ selectedIds.size }} item{{ selectedIds.size !== 1 ? 's' : '' }}</strong>.
+          This cannot be undone.
+        </p>
+      </template>
+      <template #footer>
+        <UButton variant="outline" color="neutral" @click="deleteConfirmOpen = false">Cancel</UButton>
+        <UButton color="error" icon="i-lucide-trash-2" @click="confirmBulkDelete">Delete</UButton>
+      </template>
+    </UModal>
+
   </div>
 </template>
 

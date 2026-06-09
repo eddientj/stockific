@@ -128,18 +128,18 @@ watch(() => props.triggerSubmit, (v, prev) => {
   <UForm :state="state" class="space-y-5" @submit.prevent="onSubmit">
 
     <UFormField label="Name" name="name" required>
-      <UInput v-model="state.name" maxlength="200" class="w-full" />
+      <UInput v-model="state.name" placeholder="e.g. Scarlet & Violet Booster Pack" maxlength="200" class="w-full" />
     </UFormField>
 
     <UFormField label="Description" name="description">
-      <UTextarea v-model="state.description" :rows="3" maxlength="5000" class="w-full" />
+      <UTextarea v-model="state.description" placeholder="Optional product description…" :rows="3" maxlength="5000" class="w-full" />
     </UFormField>
 
     <div class="grid grid-cols-2 gap-4">
       <UFormField label="Price (RM)" name="price" required>
         <UInput
           :value="state.price"
-          type="number" min="0" max="1000000" step="0.01" class="w-full"
+          type="number" min="0" max="1000000" step="0.01" placeholder="0.00" class="w-full"
           @keydown="blockE"
           @input="clampPrice($event)"
         />
@@ -155,7 +155,7 @@ watch(() => props.triggerSubmit, (v, prev) => {
         <UFormField label="Stock" name="stock_quantity">
           <UInput
             :value="state.stock_quantity"
-            type="number" min="0" max="99999" class="w-full"
+            type="number" min="0" max="99999" placeholder="0" class="w-full"
             @keydown="blockE"
             @input="clampInt('stock_quantity', $event)"
           />
@@ -163,7 +163,7 @@ watch(() => props.triggerSubmit, (v, prev) => {
         <UFormField label="On Hold" name="stock_on_hold">
           <UInput
             :value="state.stock_on_hold"
-            type="number" min="0" max="99999" class="w-full"
+            type="number" min="0" max="99999" placeholder="0" class="w-full"
             @keydown="blockE"
             @input="clampInt('stock_on_hold', $event)"
           />
