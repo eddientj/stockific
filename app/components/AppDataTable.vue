@@ -11,6 +11,7 @@ const props = defineProps<{
   loading?:         boolean
   createLabel?:     string
   searchField?:     string | string[]
+  filterable?:      boolean
   activeFilters?:   number
   exportFilename?:  string
   exportColumns?:   ExportColumn[]
@@ -202,8 +203,9 @@ function confirmBulkDelete() {
         />
 
         <div class="flex items-center gap-2">
-          <!-- Filter -->
+          <!-- Filter (only shown when page opts in with filterable prop) -->
           <UButton
+            v-if="filterable"
             variant="outline"
             color="neutral"
             icon="i-lucide-sliders-horizontal"

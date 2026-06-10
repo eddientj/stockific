@@ -1,14 +1,39 @@
-import { mockOrders, type Order, type OrderStatus } from '~/data/mockOrders'
+export type OrderStatus = 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered' | 'Cancelled'
 
-// Module-level reactive singleton — status changes persist across composable calls
-const _orders = ref<Order[]>(mockOrders.map(o => ({ ...o })))
+export type OrderItem = {
+  id:      string
+  name:    string
+  variant: string | null
+  qty:     number
+  price:   number
+}
 
-// ── Status display config (shared with template via composable) ──
+export type Order = {
+  id:                uuid
+  order_number:      string
+  customer_id:       string | null
+  customer_name:     string
+  customer_email:    string | null
+  customer_phone:    string | null
+  customer_address:  string | null
+  customer_city:     string | null
+  customer_postcode: string | null
+  shipping:          number
+  status:            OrderStatus
+  notes:             string | null
+  created_at:        string
+  updated_at:        string
+  order_items:       OrderItem[]
+}
+
+type uuid = string
+
+// ── Status display config ─────────────────────────────────────
 export type OrderStatusCfg = {
   color: string
-  bg: string
-  dot: string
-  icon: string
+  bg:    string
+  dot:   string
+  icon:  string
 }
 
 export const ORDER_STATUS_CFG: Record<OrderStatus, OrderStatusCfg> = {
@@ -40,19 +65,25 @@ export function buildOrderTimeline(status: OrderStatus) {
 
 // ── Composable ────────────────────────────────────────────────
 export function useOrders() {
+  const toast = useAppToast()
+
+  const { data: orders, pending, refresh } = useFetch<Order[]>('/api/orders', {
+    default: () => [],
+  })
+
   const search       = ref('')
   const statusFilter = ref<OrderStatus | 'all'>('all')
 
   const filtered = computed(() => {
-    let rows = _orders.value
+    let rows = orders.value ?? []
     if (statusFilter.value !== 'all')
       rows = rows.filter(o => o.status === statusFilter.value)
     if (search.value.trim()) {
       const q = search.value.toLowerCase()
       rows = rows.filter(o =>
-        o.id.toLowerCase().includes(q) ||
-        o.customer.toLowerCase().includes(q) ||
-        o.email.toLowerCase().includes(q),
+        o.order_number.toLowerCase().includes(q) ||
+        o.customer_name.toLowerCase().includes(q) ||
+        (o.customer_email ?? '').toLowerCase().includes(q),
       )
     }
     return rows
@@ -61,27 +92,73 @@ export function useOrders() {
   const countByStatus = computed(() =>
     Object.fromEntries(
       (Object.keys(ORDER_STATUS_CFG) as OrderStatus[]).map(s => [
-        s, _orders.value.filter(o => o.status === s).length,
+        s, (orders.value ?? []).filter(o => o.status === s).length,
       ]),
     ) as Record<OrderStatus, number>,
   )
 
   const totalRevenue = computed(() =>
-    _orders.value.reduce((sum, o) => sum + orderTotal(o), 0),
+    (orders.value ?? [])
+      .filter(o => o.status !== 'Cancelled')
+      .reduce((sum, o) => sum + orderTotal(o), 0),
   )
 
   // ── Status advancement ────────────────────────────────────────
   const STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus>> = {
-    Pending: 'Confirmed',
-    Confirmed: 'Shipped',
-    Shipped: 'Delivered',
+    Pending: 'Confirmed', Confirmed: 'Shipped', Shipped: 'Delivered',
   }
 
-  function advanceStatus(orderId: string) {
-    const order = _orders.value.find(o => o.id === orderId)
+  const advancing = ref<string | null>(null)
+
+  async function advanceStatus(orderId: string) {
+    const order = (orders.value ?? []).find(o => o.id === orderId)
     if (!order) return
     const next = STATUS_NEXT[order.status]
-    if (next) order.status = next
+    if (!next) return
+
+    advancing.value = orderId
+    try {
+      const updated = await $fetch<Order>(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        body: { status: next },
+      })
+      // Replace the whole array ref so shallowRef triggers a re-render
+      if (orders.value) orders.value = orders.value.map(o => o.id === orderId ? updated : o)
+      if (selected.value?.id === orderId) selected.value = updated
+    } catch (e: any) {
+      toast.add({ title: 'Failed to update order', description: e?.data?.statusMessage ?? e?.message, color: 'error' })
+    } finally {
+      advancing.value = null
+    }
+  }
+
+  async function createOrder(payload: any) {
+    const order = await $fetch<Order>('/api/orders', { method: 'POST', body: payload })
+    orders.value = [order, ...(orders.value ?? [])]
+    return order
+  }
+
+  async function updateOrder(orderId: string, payload: any) {
+    const updated = await $fetch<Order>(`/api/orders/${orderId}`, { method: 'PATCH', body: payload })
+    if (orders.value) orders.value = orders.value.map(o => o.id === orderId ? updated : o)
+    if (selected.value?.id === orderId) selected.value = updated
+    return updated
+  }
+
+  async function cancelOrder(orderId: string) {
+    advancing.value = orderId
+    try {
+      const updated = await $fetch<Order>(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        body: { status: 'Cancelled' },
+      })
+      if (orders.value) orders.value = orders.value.map(o => o.id === orderId ? updated : o)
+      if (selected.value?.id === orderId) selected.value = updated
+    } catch (e: any) {
+      toast.add({ title: 'Failed to cancel order', description: e?.data?.statusMessage ?? e?.message, color: 'error' })
+    } finally {
+      advancing.value = null
+    }
   }
 
   // ── Slideover state ──────────────────────────────────────────
@@ -95,7 +172,7 @@ export function useOrders() {
 
   // ── Helpers ───────────────────────────────────────────────────
   function orderTotal(o: Order) {
-    return o.items.reduce((s, i) => s + i.price * i.qty, 0) + o.shipping
+    return (o.order_items ?? []).reduce((s, i) => s + i.price * i.qty, 0) + (o.shipping ?? 0)
   }
 
   function rm(n: number) {
@@ -103,7 +180,9 @@ export function useOrders() {
   }
 
   return {
-    orders: _orders,
+    orders,
+    pending,
+    refresh,
     search,
     statusFilter,
     filtered,
@@ -113,6 +192,10 @@ export function useOrders() {
     slideOpen,
     openDetail,
     advanceStatus,
+    cancelOrder,
+    createOrder,
+    updateOrder,
+    advancing,
     orderTotal,
     rm,
   }

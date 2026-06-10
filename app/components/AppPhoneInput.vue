@@ -21,15 +21,45 @@ const { data: phoneCodes, status, execute } = await useLazyFetch<PhoneCode[]>('/
 })
 
 const country  = computed(() => phoneCodes.value?.find(c => c.code === countryCode.value))
-const dialCode = computed(() => country.value?.dialCode  ?? '+60')
-const mask     = computed(() => country.value?.mask      ?? '##-####-####')
+const dialCode = computed(() => country.value?.dialCode ?? '+60')
+const mask     = computed(() => country.value?.mask     ?? '##-####-####')
 
 function onOpen() {
   if (!phoneCodes.value?.length) execute()
 }
 
-// Reset the phone number when country changes
-watch(countryCode, () => { model.value = '' })
+// ── Separate local number (what the user types) ────────────────
+// model.value stores the FULL value including dial code: "+60 12-3456-789"
+// localNumber stores just the masked local part: "12-3456-789"
+
+const localNumber = ref('')
+
+// Guard to avoid watch cycles when we update model ourselves
+let _updating = false
+
+watch(() => model.value, (val) => {
+  if (_updating) return
+  if (!val) { localNumber.value = ''; return }
+  const dc = dialCode.value
+  if (val.startsWith(dc + ' ')) {
+    localNumber.value = val.slice(dc.length + 1)
+  } else {
+    // Stored without dial code (legacy or manual entry) — display as-is
+    localNumber.value = val
+  }
+}, { immediate: true })
+
+watch(localNumber, (num) => {
+  _updating = true
+  model.value = num ? `${dialCode.value} ${num}` : ''
+  nextTick(() => { _updating = false })
+})
+
+// Reset when country changes
+watch(countryCode, () => {
+  localNumber.value = ''
+  model.value = ''
+})
 </script>
 
 <template>
@@ -55,7 +85,6 @@ watch(countryCode, () => { model.value = '' })
       trailing-icon="i-lucide-chevrons-up-down"
       @update:open="onOpen"
     >
-      <!-- Trigger: show flag emoji -->
       <span class="size-5 flex items-center text-lg leading-none">
         {{ country?.emoji ?? '🇲🇾' }}
       </span>
@@ -71,7 +100,7 @@ watch(countryCode, () => { model.value = '' })
 
     <!-- Phone number input with mask -->
     <UInput
-      v-model="model"
+      v-model="localNumber"
       v-maska="mask"
       type="tel"
       :placeholder="mask.replaceAll('#', '_')"

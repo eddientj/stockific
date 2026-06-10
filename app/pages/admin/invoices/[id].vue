@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import type { InvoiceRow, InvoiceItemPayload, CustomerRow, ProductRow } from '~/types'
-import type { DocItem } from '~/components/InvoiceDoc.vue'
+import type { FieldDef } from '~/types/form'
+import { useSettings } from '~/composables/useSettings'
+
+export type DocItem = { _key: number; description: string; qty: number; unit_price: number }
+
+type Payment = {
+  id:         string
+  invoice_id: string
+  amount:     number
+  method:     string
+  reference:  string | null
+  notes:      string | null
+  paid_at:    string
+  created_at: string
+}
 
 definePageMeta({ layout: 'admin' })
 
@@ -66,6 +80,9 @@ const selectedCustomer = computed(() =>
   (customers.value ?? []).find(c => c.id === selectedCustomerId.value) ?? null
 )
 
+// ── Settings (for invoice header / bank details) ──────────────
+const { settings } = useSettings()
+
 // ── Payment terms presets ─────────────────────────────────────
 const PAY_TERMS = ['Due on receipt', '7 days', '14 days', '30 days', '60 days']
 
@@ -122,16 +139,89 @@ async function save(newStatus?: string) {
 // ── Print / PDF ───────────────────────────────────────────────
 function printInvoice() { window.print() }
 
+// ── WhatsApp share ────────────────────────────────────────────
+function shareWhatsApp() {
+  const inv    = existing.value
+  const name   = selectedCustomer.value?.name ?? 'there'
+  const phone  = selectedCustomer.value?.phone?.replace(/\D/g, '') ?? ''
+  const invNum = inv?.invoice_number ?? ''
+  const amt    = `RM ${total.value.toFixed(2)}`
+  const due    = dueDate.value ? ` Due: ${dueDate.value}.` : ''
+
+  const msg = encodeURIComponent(
+    `Hi ${name}, please find your invoice ${invNum} for ${amt}.${due} Thank you!`
+  )
+
+  // If we have a phone, pre-open their chat; otherwise just open WhatsApp with the message
+  const base = phone ? `https://wa.me/${phone}` : 'https://wa.me'
+  window.open(`${base}?text=${msg}`, '_blank')
+}
+
 // ── Helpers ───────────────────────────────────────────────────
 const today = new Date().toISOString().slice(0, 10)
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft', sent: 'Sent', paid: 'Paid', overdue: 'Overdue', cancelled: 'Cancelled',
+  draft: 'Draft', sent: 'Sent', paid: 'Paid', overdue: 'Overdue', cancelled: 'Cancelled', refunded: 'Refunded',
 }
 const STATUS_COLORS: Record<string, string> = {
   draft: 'text-(--ui-text-muted)', sent: 'text-sky-500', paid: 'text-teal-500',
-  overdue: 'text-red-500', cancelled: 'text-(--ui-text-muted)',
+  overdue: 'text-red-500', cancelled: 'text-(--ui-text-muted)', refunded: 'text-orange-500',
 }
+
+// ── More actions kebab menu ────────────────────────────────────
+const moreActions = computed(() => {
+  const actions = []
+
+  if (status.value === 'sent') {
+    actions.push({
+      label: 'Mark as overdue',
+      icon:  'i-lucide-clock-alert',
+      onSelect() { save('overdue') },
+    })
+    actions.push({
+      label: 'Revert to draft',
+      icon:  'i-lucide-rotate-ccw',
+      onSelect() { save('draft') },
+    })
+  }
+
+  if (status.value === 'overdue') {
+    actions.push({
+      label: 'Revert to sent',
+      icon:  'i-lucide-rotate-ccw',
+      onSelect() { save('sent') },
+    })
+  }
+
+  if (status.value === 'cancelled') {
+    actions.push({
+      label: 'Revert to draft',
+      icon:  'i-lucide-rotate-ccw',
+      onSelect() { save('draft') },
+    })
+  }
+
+  if (status.value !== 'cancelled' && status.value !== 'paid') {
+    if (actions.length) actions.push({ type: 'separator' as const })
+    actions.push({
+      label: 'Cancel invoice',
+      icon:  'i-lucide-ban',
+      color: 'error' as const,
+      onSelect() { save('cancelled') },
+    })
+  }
+
+  if (status.value === 'paid') {
+    actions.push({
+      label: 'Mark as refunded',
+      icon:  'i-lucide-undo-2',
+      color: 'error' as const,
+      onSelect() { save('refunded') },
+    })
+  }
+
+  return actions
+})
 
 // ── Props bundle for InvoiceDoc ───────────────────────────────
 // Print version filters out any unfilled rows
@@ -154,22 +244,103 @@ const docProps = computed(() => ({
   discount:      discount.value,
   notes:         notes.value,
   today,
+  settings:      settings.value,
 }))
 
-// ── Number input helpers (same pattern as ProductForm) ────────
-function blockE(e: KeyboardEvent) {
-  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault()
+// ── Payments ──────────────────────────────────────────────────
+const { data: payments, refresh: refreshPayments } = isNew
+  ? { data: ref<Payment[]>([]), refresh: async () => {} }
+  : await useFetch<Payment[]>(`/api/invoices/${id}/payments`)
+
+const totalPaid = computed(() =>
+  (payments.value ?? []).reduce((s, p) => s + Number(p.amount), 0)
+)
+
+const paymentModalOpen = ref(false)
+
+async function onPaymentSaved() {
+  status.value = 'paid'
+  await refreshPayments()
 }
 
-// Generic: clamps an event's input and calls setter
-function clampInput(setter: (v: number) => void, min: number, max: number, decimals: number, e: Event) {
-  const input = e.target as HTMLInputElement
-  if (input.value === '') return
-  const v = parseFloat(Number(input.value).toFixed(decimals))
-  const clamped = Math.min(max, Math.max(min, isNaN(v) ? min : v))
-  input.value = String(clamped)
-  setter(clamped)
+// ── Payment form ──────────────────────────────────────────────
+const PAYMENT_FIELDS: FieldDef[] = [
+  { name: 'amount',    label: 'Amount',                     type: 'readonly', span: 2 },
+  { name: 'method',    label: 'Payment method',             type: 'select', required: true, options: [
+    { label: 'Bank Transfer', value: 'Bank Transfer' },
+    { label: 'FPX',           value: 'FPX'           },
+    { label: 'DuitNow',       value: 'DuitNow'       },
+    { label: 'Cash',          value: 'Cash'          },
+    { label: 'Cheque',        value: 'Cheque'        },
+    { label: 'Other',         value: 'Other'         },
+  ]},
+  { name: 'paid_at',   label: 'Payment date',               type: 'date', required: true },
+  { name: 'reference', label: 'Reference / Transaction ID', type: 'text', placeholder: 'e.g. TXN1234567890', span: 2 },
+  { name: 'notes',     label: 'Notes',                      type: 'textarea', placeholder: 'Optional notes…', rows: 2, span: 2 },
+]
+
+const paymentForm = ref({
+  method:    'Bank Transfer',
+  reference: '',
+  notes:     '',
+  paid_at:   new Date().toISOString().slice(0, 10),
+})
+
+watch(paymentModalOpen, (v) => {
+  if (v) {
+    paymentForm.value = {
+      method:    'Bank Transfer',
+      reference: '',
+      notes:     '',
+      paid_at:   new Date().toISOString().slice(0, 10),
+    }
+  }
+})
+
+const paymentFormData = computed(() => ({
+  amount: `RM ${total.value.toFixed(2)}`,
+  ...paymentForm.value,
+}))
+
+function onPaymentFormUpdate(data: Record<string, any>) {
+  const { amount: _, ...rest } = data
+  Object.assign(paymentForm.value, rest)
 }
+
+const savingPayment = ref(false)
+
+async function savePayment() {
+  savingPayment.value = true
+  try {
+    const payment = await $fetch<Payment>(`/api/invoices/${id}/payments`, {
+      method: 'POST',
+      body: {
+        amount:    total.value,
+        method:    paymentForm.value.method,
+        reference: paymentForm.value.reference || null,
+        notes:     paymentForm.value.notes     || null,
+        paid_at:   new Date(paymentForm.value.paid_at).toISOString(),
+      },
+    })
+    toast.add({ title: 'Payment recorded', color: 'success', icon: 'i-lucide-check' })
+    await onPaymentSaved()
+    paymentModalOpen.value = false
+  } catch (e: any) {
+    toast.add({ title: 'Failed', description: e?.data?.statusMessage ?? e?.message, color: 'error' })
+  } finally {
+    savingPayment.value = false
+  }
+}
+
+const METHOD_ICONS: Record<string, string> = {
+  'Cash':          'i-lucide-banknote',
+  'Bank Transfer': 'i-lucide-landmark',
+  'FPX':           'i-lucide-smartphone',
+  'DuitNow':       'i-lucide-qr-code',
+  'Cheque':        'i-lucide-file-text',
+  'Other':         'i-lucide-circle-ellipsis',
+}
+
 </script>
 
 <template>
@@ -192,9 +363,23 @@ function clampInput(setter: (v: number) => void, min: number, max: number, decim
       </div>
 
       <div class="flex items-center gap-2">
-        <UTooltip text="More settings → uncheck Headers and footers for a clean PDF">
+        <!-- Ghost icon actions -->
+        <UTooltip v-if="!isNew" text="Share via WhatsApp">
+          <UButton icon="i-lucide-message-circle" variant="ghost" color="neutral" size="sm" @click="shareWhatsApp" />
+        </UTooltip>
+        <UTooltip text="Print / Save as PDF">
           <UButton icon="i-lucide-printer" variant="ghost" color="neutral" size="sm" @click="printInvoice" />
         </UTooltip>
+
+        <!-- More actions kebab (saved invoices only) -->
+        <UDropdownMenu
+          v-if="!isNew"
+          :items="moreActions"
+        >
+          <UButton icon="i-lucide-ellipsis" variant="ghost" color="neutral" size="sm" />
+        </UDropdownMenu>
+
+        <!-- Primary status-progression button -->
         <UButton
           v-if="!isNew && status === 'draft'"
           variant="outline"
@@ -211,11 +396,11 @@ function clampInput(setter: (v: number) => void, min: number, max: number, decim
           color="success"
           size="sm"
           icon="i-lucide-check"
-          :loading="saving"
-          @click="save('paid')"
+          @click="paymentModalOpen = true"
         >
           Mark paid
         </UButton>
+
         <UButton icon="i-lucide-save" size="sm" :loading="saving" @click="save()">
           {{ isNew ? 'Create invoice' : 'Save' }}
         </UButton>
@@ -251,33 +436,13 @@ function clampInput(setter: (v: number) => void, min: number, max: number, decim
             </UFormField>
 
             <div class="grid grid-cols-2 gap-3">
-              <UFormField label="Issue date" name="issue_date">
-                <UInput v-model="issueDate" type="date" class="w-full" />
-              </UFormField>
+              <AppField :field="{ name: 'issue_date', label: 'Issue date', type: 'date' }" :model-value="issueDate" @update:model-value="issueDate = $event" />
               <UFormField label="Payment terms" name="pay_terms">
                 <USelectMenu v-model="payTerms" :items="PAY_TERMS" class="w-full" />
               </UFormField>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <UFormField label="Due date" name="due_date">
-                <UInput v-model="dueDate" type="date" class="w-full" />
-              </UFormField>
-              <UFormField label="Status" name="status">
-                <USelectMenu
-                  v-model="status"
-                  :items="[
-                    { label: 'Draft',     value: 'draft'     },
-                    { label: 'Sent',      value: 'sent'      },
-                    { label: 'Paid',      value: 'paid'      },
-                    { label: 'Overdue',   value: 'overdue'   },
-                    { label: 'Cancelled', value: 'cancelled' },
-                  ]"
-                  value-key="value"
-                  class="w-full"
-                />
-              </UFormField>
-            </div>
+            <AppField :field="{ name: 'due_date', label: 'Due date', type: 'date' }" :model-value="dueDate" @update:model-value="dueDate = $event" />
           </div>
         </UCard>
 
@@ -291,51 +456,26 @@ function clampInput(setter: (v: number) => void, min: number, max: number, decim
           </template>
 
           <div class="space-y-2">
-            <!-- Column labels -->
-            <div class="grid grid-cols-[1fr_56px_88px_32px] gap-2 text-xs text-(--ui-text-muted) px-0.5">
-              <span>Description</span>
-              <span class="text-center">Qty</span>
-              <span class="text-right">Unit price</span>
-              <span />
-            </div>
-
-            <div v-for="item in items" :key="item._key" class="space-y-1.5">
-              <!-- Product quick-fill -->
+            <div v-for="(item, idx) in items" :key="item._key" class="rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) p-3 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-(--ui-text-muted)">Item {{ idx + 1 }}</span>
+                <UButton icon="i-lucide-x" variant="ghost" color="neutral" size="xs" :disabled="items.length <= 1" @click="removeItem(item._key)" />
+              </div>
               <USelectMenu
                 :items="(products ?? []).filter(p => p.is_active).map(p => ({ label: p.name, value: p.id, description: `RM ${p.price.toFixed(2)}` }))"
                 value-key="value"
-                placeholder="← Quick-fill from product…"
+                placeholder="Quick-fill from product…"
                 searchable
                 searchable-placeholder="Search products…"
-                class="w-full text-xs"
-                :ui="{ base: 'text-xs h-7' }"
+                class="w-full"
                 @update:model-value="fillFromProduct(item, $event as string)"
               />
-              <!-- Row inputs -->
-              <div class="grid grid-cols-[1fr_56px_88px_32px] gap-2 items-center">
+              <UFormField label="Description">
                 <UInput v-model="item.description" placeholder="Item description" class="w-full" />
-                <UInput
-                  :value="item.qty"
-                  type="number" min="0.01" max="99999" step="0.01" placeholder="1"
-                  class="w-full text-center"
-                  @keydown="blockE"
-                  @input="clampInput(v => item.qty = v, 0.01, 99999, 2, $event)"
-                />
-                <UInput
-                  :value="item.unit_price"
-                  type="number" min="0" max="99999" step="0.01" placeholder="0.00"
-                  class="w-full text-right"
-                  @keydown="blockE"
-                  @input="clampInput(v => item.unit_price = v, 0, 99999, 2, $event)"
-                />
-                <UButton
-                  icon="i-lucide-x"
-                  variant="ghost"
-                  color="neutral"
-                  size="xs"
-                  :disabled="items.length <= 1"
-                  @click="removeItem(item._key)"
-                />
+              </UFormField>
+              <div class="grid grid-cols-2 gap-2">
+                <AppField :field="{ name: 'qty', label: 'Qty', type: 'number', min: 0.01, max: 99999, decimals: 2 }" :model-value="item.qty" @update:model-value="item.qty = $event" />
+                <AppField :field="{ name: 'price', label: 'Unit price (RM)', type: 'number', min: 0, max: 99999, decimals: 2, mono: true }" :model-value="item.unit_price" @update:model-value="item.unit_price = $event" />
               </div>
             </div>
           </div>
@@ -353,8 +493,8 @@ function clampInput(setter: (v: number) => void, min: number, max: number, decim
                   :value="taxRate"
                   type="number" min="0" max="100" step="0.1" placeholder="6"
                   class="w-20 h-7 text-xs"
-                  @keydown="blockE"
-                  @input="clampInput(v => taxRate = v, 0, 100, 1, $event)"
+                  @keydown="(e: KeyboardEvent) => ['e','E','+','-'].includes(e.key) && e.preventDefault()"
+                  @input="(e: Event) => { const v = parseFloat((e.target as HTMLInputElement).value); if (!isNaN(v)) taxRate = Math.min(100, Math.max(0, +v.toFixed(1))) }"
                 />
               </div>
               <span class="text-(--ui-text-highlighted)">RM {{ taxAmount.toFixed(2) }}</span>
@@ -366,8 +506,8 @@ function clampInput(setter: (v: number) => void, min: number, max: number, decim
                   :value="discount"
                   type="number" min="0" max="99999" step="0.01" placeholder="0.00"
                   class="w-20 h-7 text-xs"
-                  @keydown="blockE"
-                  @input="clampInput(v => discount = v, 0, 99999, 2, $event)"
+                  @keydown="(e: KeyboardEvent) => ['e','E','+','-'].includes(e.key) && e.preventDefault()"
+                  @input="(e: Event) => { const v = parseFloat((e.target as HTMLInputElement).value); if (!isNaN(v)) discount = Math.min(99999, Math.max(0, +v.toFixed(2))) }"
                 />
               </div>
               <span :class="discount > 0 ? 'text-teal-500' : 'text-(--ui-text-muted)'" class="text-xs">
@@ -394,6 +534,56 @@ function clampInput(setter: (v: number) => void, min: number, max: number, decim
           />
         </UCard>
 
+        <!-- ── Payment history (only when payments exist) ──────── -->
+        <UCard v-if="!isNew && payments?.length">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <p class="font-semibold text-(--ui-text-highlighted)">Payments</p>
+              <span class="text-xs font-mono font-medium text-teal-500">
+                RM {{ totalPaid.toFixed(2) }} paid
+              </span>
+            </div>
+          </template>
+
+          <!-- Warning banner for cancelled / refunded -->
+          <div
+            v-if="status === 'cancelled' || status === 'refunded'"
+            class="mb-3 flex items-start gap-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 px-3 py-2.5 text-xs text-orange-700 dark:text-orange-400"
+          >
+            <UIcon name="i-lucide-triangle-alert" class="size-3.5 shrink-0 mt-0.5" />
+            <span>
+              This invoice is <strong>{{ STATUS_LABELS[status] }}</strong> — these payments are
+              <strong>excluded from reports</strong> and revenue totals.
+            </span>
+          </div>
+
+          <div class="divide-y divide-(--ui-border)">
+            <div
+              v-for="p in payments"
+              :key="p.id"
+              class="flex items-start justify-between gap-3 py-2.5"
+            >
+              <div class="flex items-center gap-2.5">
+                <UIcon
+                  :name="METHOD_ICONS[p.method] ?? 'i-lucide-circle-ellipsis'"
+                  class="size-4 text-(--ui-text-muted) shrink-0 mt-0.5"
+                />
+                <div>
+                  <p class="text-sm text-(--ui-text-highlighted)">{{ p.method }}</p>
+                  <p class="text-xs text-(--ui-text-muted)">
+                    {{ p.paid_at.slice(0, 10) }}
+                    <template v-if="p.reference"> · <span class="font-mono">{{ p.reference }}</span></template>
+                  </p>
+                  <p v-if="p.notes" class="text-xs text-(--ui-text-muted) italic mt-0.5">{{ p.notes }}</p>
+                </div>
+              </div>
+              <span class="font-mono font-semibold text-sm text-teal-500 shrink-0">
+                RM {{ Number(p.amount).toFixed(2) }}
+              </span>
+            </div>
+          </div>
+        </UCard>
+
       </div>
 
       <!-- ════════════ PREVIEW SIDE (screen only) ════════════ -->
@@ -408,6 +598,19 @@ function clampInput(setter: (v: number) => void, min: number, max: number, decim
 
     </div>
   </div>
+
+  <!-- ── Record Payment slideover ─────────────────────────────── -->
+  <AppFormSlideover
+    v-if="!isNew && id"
+    title="Record payment"
+    :fields="PAYMENT_FIELDS"
+    :model-value="paymentFormData"
+    v-model:open="paymentModalOpen"
+    :loading="savingPayment"
+    save-label="Confirm payment"
+    @update:model-value="onPaymentFormUpdate"
+    @save="savePayment"
+  />
 
   <!-- ── Print-only clone (teleported to <body> direct child) ── -->
   <!-- Teleport is the only reliable way to avoid multi-page print issues. -->

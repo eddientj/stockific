@@ -90,7 +90,7 @@ export type CustomerPayload = {
 
 // ── Invoice ───────────────────────────────────────────────────
 
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled' | 'refunded'
 
 export type InvoiceItemRow = {
   id: string

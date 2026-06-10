@@ -6,6 +6,7 @@ const nav = [
   { to: '/admin/customers', label: 'Customers', exact: false },
   { to: '/admin/invoices',  label: 'Invoices',  exact: false },
   { to: '/admin/reports',   label: 'Reports',   exact: false },
+  { to: '/admin/settings',  label: 'Settings',  exact: false },
 ]
 
 const colorMode = useColorMode()

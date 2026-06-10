@@ -20,11 +20,18 @@ defineProps<{
     >
       {{ backLabel ?? 'Back' }}
     </UButton>
-    <h1 class="text-2xl font-semibold tracking-tight text-(--ui-text-highlighted)">
-      {{ title }}
-    </h1>
-    <p v-if="description" class="mt-1 text-sm text-(--ui-text-muted)">
-      {{ description }}
-    </p>
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight text-(--ui-text-highlighted)">
+          {{ title }}
+        </h1>
+        <p v-if="description" class="mt-1 text-sm text-(--ui-text-muted)">
+          {{ description }}
+        </p>
+      </div>
+      <div v-if="$slots.actions" class="shrink-0">
+        <slot name="actions" />
+      </div>
+    </div>
   </div>
 </template>

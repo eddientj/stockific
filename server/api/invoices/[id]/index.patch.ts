@@ -19,7 +19,6 @@ export default defineEventHandler(async (event) => {
 
   // Re-compute totals if items supplied
   if (Array.isArray(body.items)) {
-    // Delete existing items and re-insert
     await supabase.from('invoice_items').delete().eq('invoice_id', id)
 
     const items = body.items.map(i => ({

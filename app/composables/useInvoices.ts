@@ -13,6 +13,7 @@ export const INVOICE_STATUS_CFG: Record<InvoiceStatus, InvoiceStatusCfg> = {
   paid:      { color: 'text-teal-600   dark:text-teal-400',      bg: 'bg-teal-50   dark:bg-teal-900/30   border-teal-200',   dot: 'bg-teal-500'   },
   overdue:   { color: 'text-red-600    dark:text-red-400',       bg: 'bg-red-50    dark:bg-red-900/30    border-red-200',    dot: 'bg-red-500'    },
   cancelled: { color: 'text-(--ui-text-muted)',                  bg: 'bg-(--ui-bg-elevated) border-(--ui-border)',           dot: 'bg-(--ui-border)'  },
+  refunded:  { color: 'text-orange-600  dark:text-orange-400',  bg: 'bg-orange-50 dark:bg-orange-900/30 border-orange-200', dot: 'bg-orange-500' },
 }
 
 export const INVOICE_STATUSES = Object.keys(INVOICE_STATUS_CFG) as InvoiceStatus[]
