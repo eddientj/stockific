@@ -3,136 +3,86 @@ import type { ProductRow } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
-// ── Live data ────────────────────────────────────────────────
+const { t } = useLocale()
+
+// ── Live inventory data ──────────────────────────────────────
 const { data: products } = await useFetch<ProductRow[]>('/api/products')
 
 // ── Period selector ──────────────────────────────────────────
 type Period = '1M' | '3M' | '6M' | '1Y'
 const period = ref<Period>('3M')
-const PERIODS: { key: Period; label: string }[] = [
-  { key: '1M', label: '1 Month'  },
-  { key: '3M', label: '3 Months' },
-  { key: '6M', label: '6 Months' },
-  { key: '1Y', label: '1 Year'   },
-]
+const PERIODS = computed(() => [
+  { key: '1M' as Period, label: t('rep.1m') },
+  { key: '3M' as Period, label: t('rep.3m') },
+  { key: '6M' as Period, label: t('rep.6m') },
+  { key: '1Y' as Period, label: t('rep.1y') },
+])
 
-// ── Deterministic seeding ────────────────────────────────────
-function s(i: number, salt = 0) {
-  return (Math.sin(i * 6.7 + salt) + 1) / 2
+// ── Real reports data (reactive to period) ───────────────────
+type ReportData = {
+  totalRevenue: number
+  totalOrders: number
+  aov: number
+  revenueChange: number
+  revenueByMonth: { month: string; label: string; revenue: number; orders: number }[]
+  topProducts: { name: string; category: string; revenue: number; units: number }[]
+  categoryBreakdown: { name: string; revenue: number; pct: number; color: string }[]
 }
 
-// ── Revenue data ─────────────────────────────────────────────
-// Build 12 months of monthly revenue data
-const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-const allMonthlyRevenue = MONTH_LABELS.map((label, i) => {
-  const base = 45000
-  const growth = 1 + i * 0.04                  // gentle MoM growth
-  const variation = s(i, 1.1) * 18000 - 4000
-  return { label, value: Math.round((base + variation) * growth) }
-})
-
-const visibleMonths = computed(() => {
-  const count = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 }[period.value]
-  return allMonthlyRevenue.slice(12 - count)
-})
-
-const periodRevenue = computed(() =>
-  visibleMonths.value.reduce((sum, m) => sum + m.value, 0)
+const { data: reportData, refresh: refreshReport } = await useFetch<ReportData>(
+  () => `/api/reports?period=${period.value}`,
+  { watch: [period] }
 )
-const prevRevenue = computed(() => Math.round(periodRevenue.value * 0.89))
-const revenueGrowth = computed(() =>
-  +(((periodRevenue.value - prevRevenue.value) / prevRevenue.value) * 100).toFixed(1)
-)
+
+const periodRevenue  = computed(() => reportData.value?.totalRevenue  ?? 0)
+const periodOrders   = computed(() => reportData.value?.totalOrders   ?? 0)
+const revenueGrowth  = computed(() => reportData.value?.revenueChange ?? 0)
+const aov            = computed(() => reportData.value?.aov           ?? 0)
+const topProducts    = computed(() => reportData.value?.topProducts   ?? [])
+const maxProductRev  = computed(() => topProducts.value[0]?.revenue   ?? 1)
+
+const categoryBreakdown = computed(() => reportData.value?.categoryBreakdown ?? [])
+const totalCatRevenue   = computed(() => categoryBreakdown.value.reduce((s, c) => s + c.revenue, 0))
 
 // ── Revenue area chart SVG ────────────────────────────────────
 const CHART_W = 600
 const CHART_H = 120
 
-const maxRev = computed(() => Math.max(...visibleMonths.value.map(m => m.value)))
-const minRev = computed(() => Math.min(...visibleMonths.value.map(m => m.value)) * 0.8)
+const visibleMonths = computed(() => reportData.value?.revenueByMonth ?? [])
+
+const maxRev = computed(() => Math.max(...visibleMonths.value.map(m => m.revenue), 1))
+const minRev = computed(() => Math.min(...visibleMonths.value.map(m => m.revenue)) * 0.8)
 
 function rx(i: number, total: number) {
-  return total === 1 ? CHART_W / 2 : (i / (total - 1)) * CHART_W
+  return total <= 1 ? CHART_W / 2 : (i / (total - 1)) * CHART_W
 }
-function ry(v: number) {
-  return CHART_H - ((v - minRev.value) / (maxRev.value - minRev.value)) * CHART_H * 0.85
+function ry(v: number, max: number, min: number) {
+  return CHART_H - ((v - min) / (max - min || 1)) * CHART_H * 0.85
 }
 
 const chartPts = computed(() =>
   visibleMonths.value.map((m, i) => ({
     x: rx(i, visibleMonths.value.length),
-    y: ry(m.value),
+    y: ry(m.revenue, maxRev.value, minRev.value),
     label: m.label,
-    value: m.value,
+    value: m.revenue,
   }))
 )
 
 const polyline = computed(() => chartPts.value.map(p => `${p.x},${p.y}`).join(' '))
 const fillPath = computed(() => {
-  if (chartPts.value.length === 0) return ''
-  const first = chartPts.value[0]!
-  const last  = chartPts.value[chartPts.value.length - 1]!
-  return `M${first.x},${CHART_H} ${chartPts.value.map(p => `L${p.x},${p.y}`).join(' ')} L${last.x},${CHART_H} Z`
+  const pts = chartPts.value
+  if (!pts.length) return ''
+  const first = pts[0]!
+  const last  = pts[pts.length - 1]!
+  return `M${first.x},${CHART_H} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${last.x},${CHART_H} Z`
 })
-
-// ── Orders count (uses same period) ─────────────────────────
-const allMonthlyOrders = MONTH_LABELS.map((_, i) => {
-  return Math.round(80 + s(i, 2.2) * 80 + i * 3)
-})
-
-const periodOrders = computed(() => {
-  const count = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 }[period.value]
-  return allMonthlyOrders.slice(12 - count).reduce((a, b) => a + b, 0)
-})
-
-// ── Top products (mock, seeded) ───────────────────────────────
-const TOP_PRODUCTS = [
-  { name: 'Smart Watch',         category: 'Electronics',   revenue: 34800, units: 87  },
-  { name: 'Leather Bag',         category: 'Fashion',       revenue: 27540, units: 60  },
-  { name: 'Wireless Headphones', category: 'Electronics',   revenue: 24570, units: 130 },
-  { name: 'Running Shoes',       category: 'Sports',        revenue: 21675, units: 75  },
-  { name: 'Serum & Toner Kit',   category: 'Beauty',        revenue: 15900, units: 100 },
-  { name: 'Laptop Stand',        category: 'Electronics',   revenue: 12900, units: 100 },
-  { name: 'Resistance Band Set', category: 'Sports',        revenue: 10975, units: 220 },
-]
-
-const maxProductRev = TOP_PRODUCTS[0]!.revenue
-
-// ── Category breakdown ────────────────────────────────────────
-// Derives real category counts from the API, adds mock revenue split
-const CATEGORY_COLORS = ['#008080','#0EA5E9','#8B5CF6','#F59E0B','#F472B6','#22C55E']
-
-const categoryBreakdown = computed(() => {
-  if (!products.value) return []
-  // Group products by category
-  const map = new Map<string, { count: number; revenue: number }>()
-  products.value.forEach((p, i) => {
-    const cat = p.categories?.name ?? 'Uncategorised'
-    const prev = map.get(cat) ?? { count: 0, revenue: 0 }
-    const rev = Math.round(Number(p.price) * (10 + Math.floor(s(i, 8.8) * 40)))
-    map.set(cat, { count: prev.count + 1, revenue: prev.revenue + rev })
-  })
-  const entries = Array.from(map.entries())
-    .map(([name, d]) => ({ name, ...d }))
-    .sort((a, b) => b.revenue - a.revenue)
-  const total = entries.reduce((s, e) => s + e.revenue, 0)
-  return entries.map((e, i) => ({
-    ...e,
-    pct: Math.round((e.revenue / total) * 100),
-    color: CATEGORY_COLORS[i % CATEGORY_COLORS.length]!,
-  }))
-})
-
-const totalCatRevenue = computed(() =>
-  categoryBreakdown.value.reduce((s, c) => s + c.revenue, 0)
-)
 
 // ── Donut chart ───────────────────────────────────────────────
-const DONUT_R = 54
+const DONUT_R  = 54
 const DONUT_CX = 80
 const DONUT_CY = 80
-const STROKE = 22
+const STROKE   = 22
 
 const donutSegments = computed(() => {
   let offset = 0
@@ -146,16 +96,16 @@ const donutSegments = computed(() => {
   })
 })
 
-// ── Inventory health (from real API) ────────────────────────
+// ── Inventory health (real) ──────────────────────────────────
 const liveStock = (p: ProductRow) =>
   (p.variants ?? []).reduce((s, v) => s + v.stock_quantity - v.stock_on_hold, 0)
 
 const inventoryStats = computed(() => {
-  const all = products.value ?? []
-  const total    = all.length
-  const healthy  = all.filter(p => liveStock(p) > 10).length
-  const low      = all.filter(p => liveStock(p) > 0 && liveStock(p) <= 10).length
-  const out      = all.filter(p => liveStock(p) === 0).length
+  const all     = products.value ?? []
+  const total   = all.length
+  const healthy = all.filter(p => liveStock(p) > 10).length
+  const low     = all.filter(p => liveStock(p) > 0 && liveStock(p) <= 10).length
+  const out     = all.filter(p => liveStock(p) === 0).length
   return { total, healthy, low, out }
 })
 
@@ -170,8 +120,8 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
     <!-- ── Header + period toggle ─────────────────────────────── -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-(--ui-text-highlighted)">Reports</h1>
-        <p class="mt-1 text-sm text-(--ui-text-muted)">Sales trends, top products, and inventory health.</p>
+        <h1 class="text-2xl font-semibold tracking-tight text-(--ui-text-highlighted)">{{ t('rep.title') }}</h1>
+        <p class="mt-1 text-sm text-(--ui-text-muted)">{{ t('rep.subtitle') }}</p>
       </div>
 
       <!-- Period tabs -->
@@ -203,7 +153,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
           </span>
         </div>
         <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">{{ rmK(periodRevenue) }}</p>
-        <p class="text-xs text-(--ui-text-muted) mt-0.5">Revenue</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('rep.revenue') }}</p>
       </UCard>
 
       <UCard>
@@ -212,8 +162,8 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
             <UIcon name="i-lucide-shopping-cart" class="size-4 text-violet-500" />
           </div>
         </div>
-        <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">{{ periodOrders.toLocaleString() }}</p>
-        <p class="text-xs text-(--ui-text-muted) mt-0.5">Orders</p>
+        <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">{{ periodOrders.toLocaleString('en-MY') }}</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('rep.orders') }}</p>
       </UCard>
 
       <UCard>
@@ -222,10 +172,8 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
             <UIcon name="i-lucide-receipt" class="size-4 text-sky-500" />
           </div>
         </div>
-        <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">
-          {{ rmK(Math.round(periodRevenue / Math.max(periodOrders, 1))) }}
-        </p>
-        <p class="text-xs text-(--ui-text-muted) mt-0.5">Avg. order value</p>
+        <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">{{ rmK(aov) }}</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('rep.aov') }}</p>
       </UCard>
 
       <UCard>
@@ -235,7 +183,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
           </div>
         </div>
         <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">{{ inventoryStats.total }}</p>
-        <p class="text-xs text-(--ui-text-muted) mt-0.5">Total products</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('rep.totalProds') }}</p>
       </UCard>
 
     </div>
@@ -245,12 +193,12 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
       <template #header>
         <div class="flex items-start justify-between">
           <div>
-            <p class="font-semibold text-(--ui-text-highlighted)">Revenue over time</p>
-            <p class="text-xs text-(--ui-text-muted)">Monthly revenue for the selected period</p>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('rep.revTime') }}</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('rep.monthly') }}</p>
           </div>
           <div class="text-right">
             <p class="text-xl font-bold text-teal-500">{{ rm(periodRevenue) }}</p>
-            <p class="text-xs text-emerald-500">+{{ revenueGrowth }}% vs prior period</p>
+            <p class="text-xs text-emerald-500">+{{ revenueGrowth }}% {{ t('rep.vsPrior') }}</p>
           </div>
         </div>
       </template>
@@ -296,19 +244,19 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
       <UCard>
         <template #header>
           <div>
-            <p class="font-semibold text-(--ui-text-highlighted)">Top products by revenue</p>
-            <p class="text-xs text-(--ui-text-muted)">Best-performing SKUs</p>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('rep.topProds') }}</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('rep.bestSku') }}</p>
           </div>
         </template>
 
         <div class="space-y-4">
-          <div v-for="(p, i) in TOP_PRODUCTS" :key="p.name">
+          <div v-for="(p, i) in topProducts" :key="p.name">
             <div class="flex items-center justify-between mb-1.5">
               <div class="flex items-center gap-2 min-w-0">
                 <span class="text-xs font-bold text-(--ui-text-muted) w-4 shrink-0">{{ i + 1 }}</span>
                 <div class="min-w-0">
                   <p class="text-sm font-medium text-(--ui-text-highlighted) truncate leading-tight">{{ p.name }}</p>
-                  <p class="text-[10px] text-(--ui-text-muted)">{{ p.category }} · {{ p.units }} units</p>
+                  <p class="text-[10px] text-(--ui-text-muted)">{{ p.category }} · {{ p.units }} {{ t('rep.units') }}</p>
                 </div>
               </div>
               <span class="text-sm font-semibold text-(--ui-text-highlighted) shrink-0 ml-3">
@@ -319,6 +267,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
               <div
                 class="h-full rounded-full bg-teal-500 transition-all duration-700"
                 :style="{ width: `${(p.revenue / maxProductRev) * 100}%`, opacity: 1 - i * 0.1 }"
+
               />
             </div>
           </div>
@@ -329,8 +278,8 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
       <UCard>
         <template #header>
           <div>
-            <p class="font-semibold text-(--ui-text-highlighted)">Sales by category</p>
-            <p class="text-xs text-(--ui-text-muted)">Revenue split across product categories</p>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('rep.salesByCat') }}</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('rep.revSplit') }}</p>
           </div>
         </template>
 
@@ -372,7 +321,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
         </div>
 
         <div class="mt-4 pt-4 border-t border-(--ui-border) flex justify-between items-center">
-          <span class="text-sm text-(--ui-text-muted)">Total (est.)</span>
+          <span class="text-sm text-(--ui-text-muted)">{{ t('rep.totalEst') }}</span>
           <span class="text-sm font-bold text-(--ui-text-highlighted)">{{ rm(totalCatRevenue) }}</span>
         </div>
       </UCard>
@@ -384,11 +333,11 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
       <template #header>
         <div class="flex items-center justify-between">
           <div>
-            <p class="font-semibold text-(--ui-text-highlighted)">Inventory health</p>
-            <p class="text-xs text-(--ui-text-muted)">Live stock levels from your product catalogue</p>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('rep.invHealth') }}</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('rep.stockLevels') }}</p>
           </div>
           <NuxtLink to="/admin/products" class="text-xs text-(--ui-text-muted) hover:text-teal-500 transition-colors">
-            Manage products →
+            {{ t('rep.manageProds') }}
           </NuxtLink>
         </div>
       </template>
@@ -396,8 +345,8 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
       <!-- Health meter bar -->
       <div class="mb-5">
         <div class="flex items-center justify-between text-xs text-(--ui-text-muted) mb-1.5">
-          <span>{{ inventoryStats.total }} total products</span>
-          <span>{{ inventoryStats.out }} out of stock</span>
+          <span>{{ inventoryStats.total }} {{ t('rep.totalProds2') }}</span>
+          <span>{{ inventoryStats.out }} {{ t('rep.outOfStock') }}</span>
         </div>
         <div class="h-2.5 rounded-full overflow-hidden flex">
           <div
@@ -416,15 +365,15 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
         <div class="flex items-center gap-6 mt-2">
           <div class="flex items-center gap-1.5">
             <div class="w-2 h-2 rounded-full bg-teal-500" />
-            <span class="text-xs text-(--ui-text-muted)">Healthy <strong class="text-(--ui-text-highlighted)">{{ inventoryStats.healthy }}</strong></span>
+            <span class="text-xs text-(--ui-text-muted)">{{ t('rep.healthy') }} <strong class="text-(--ui-text-highlighted)">{{ inventoryStats.healthy }}</strong></span>
           </div>
           <div class="flex items-center gap-1.5">
             <div class="w-2 h-2 rounded-full bg-amber-400" />
-            <span class="text-xs text-(--ui-text-muted)">Low stock <strong class="text-(--ui-text-highlighted)">{{ inventoryStats.low }}</strong></span>
+            <span class="text-xs text-(--ui-text-muted)">{{ t('rep.lowStock') }} <strong class="text-(--ui-text-highlighted)">{{ inventoryStats.low }}</strong></span>
           </div>
           <div class="flex items-center gap-1.5">
             <div class="w-2 h-2 rounded-full bg-red-500" />
-            <span class="text-xs text-(--ui-text-muted)">Out of stock <strong class="text-(--ui-text-highlighted)">{{ inventoryStats.out }}</strong></span>
+            <span class="text-xs text-(--ui-text-muted)">{{ t('rep.outOfStock2') }} <strong class="text-(--ui-text-highlighted)">{{ inventoryStats.out }}</strong></span>
           </div>
         </div>
       </div>
@@ -443,7 +392,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
           </div>
           <div class="text-right shrink-0">
             <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ cat.pct }}%</p>
-            <p class="text-[10px] text-(--ui-text-muted)">of revenue</p>
+            <p class="text-[10px] text-(--ui-text-muted)">{{ t('rep.ofRevenue') }}</p>
           </div>
         </div>
       </div>

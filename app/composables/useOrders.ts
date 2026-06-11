@@ -1,11 +1,31 @@
 export type OrderStatus = 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered' | 'Cancelled'
 
 export type OrderItem = {
-  id:      string
-  name:    string
-  variant: string | null
-  qty:     number
-  price:   number
+  id:         string
+  name:       string
+  variant:    string | null
+  qty:        number
+  price:      number
+  product_id: string | null
+  variant_id: string | null
+  product:    {
+    id:       string
+    name:     string
+    is_active: boolean
+    variants: { stock_quantity: number; stock_on_hold: number }[]
+  } | null
+}
+
+// Returns a warning string if the item has a stock problem, null otherwise
+export function orderItemWarning(item: OrderItem): string | null {
+  if (!item.product_id || !item.product) return null
+  if (!item.product.is_active) return 'Discontinued'
+  const available = item.product.variants.reduce(
+    (s, v) => s + (v.stock_quantity - v.stock_on_hold), 0
+  )
+  if (available <= 0) return 'Out of stock'
+  if (item.qty > available) return `Only ${available} in stock`
+  return null
 }
 
 export type Order = {

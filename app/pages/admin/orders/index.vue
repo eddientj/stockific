@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { useOrders, ORDER_STATUS_CFG, buildOrderTimeline } from '~/composables/useOrders'
+import { useOrders, ORDER_STATUS_CFG, buildOrderTimeline, orderItemWarning } from '~/composables/useOrders'
 import type { Order, OrderStatus } from '~/composables/useOrders'
 import type { CustomerRow, ProductRow } from '~/types'
 import type { FieldDef } from '~/types/form'
 
 definePageMeta({ layout: 'admin' })
 
+const { t } = useLocale()
 const toast = useAppToast()
+
+const router = useRouter()
 
 const {
   orders,
@@ -17,10 +20,26 @@ const {
   orderTotal, rm,
 } = useOrders()
 
+const creatingInvoice = ref(false)
+
+async function createInvoice(orderId: string) {
+  creatingInvoice.value = true
+  try {
+    const { id } = await $fetch<{ id: string; invoice_number: string }>(`/api/orders/${orderId}/invoice`, { method: 'POST' })
+    slideOpen.value = false
+    await router.push(`/admin/invoices/${id}`)
+  } catch (e: any) {
+    toast.add({ title: 'Failed to create invoice', description: e?.data?.statusMessage ?? e?.message, color: 'error' })
+  } finally {
+    creatingInvoice.value = false
+  }
+}
+
 // ── Status chips ──────────────────────────────────────────────
 const statusChips = computed(() =>
   (Object.keys(ORDER_STATUS_CFG) as OrderStatus[]).map(key => ({
     key,
+    label: t(`status.${key.toLowerCase()}`),
     count: countByStatus.value[key],
     color: ORDER_STATUS_CFG[key].color,
     bg:    ORDER_STATUS_CFG[key].bg,
@@ -32,14 +51,14 @@ const selectedTimeline = computed(() =>
 )
 
 // ── Create order ──────────────────────────────────────────────
-const CREATE_CUSTOMER_FIELDS: FieldDef[] = [
-  { name: 'customer_name',     label: 'Name',     type: 'text',  required: true, placeholder: 'Full name' },
-  { name: 'customer_email',    label: 'Email',    type: 'email', placeholder: 'email@example.com' },
-  { name: 'customer_phone',    label: 'Phone',    type: 'phone' },
-  { name: 'customer_city',     label: 'City',     type: 'text',  placeholder: 'Kuala Lumpur' },
-  { name: 'customer_address',  label: 'Address',  type: 'text',  placeholder: 'Street address' },
-  { name: 'customer_postcode', label: 'Postcode', type: 'text',  placeholder: '50000' },
-]
+const CREATE_CUSTOMER_FIELDS = computed<FieldDef[]>(() => [
+  { name: 'customer_name',     label: t('field.name'),     type: 'text',  required: true, placeholder: 'Full name' },
+  { name: 'customer_email',    label: t('field.email'),    type: 'email', placeholder: 'email@example.com' },
+  { name: 'customer_phone',    label: t('field.phone'),    type: 'phone' },
+  { name: 'customer_city',     label: t('field.city'),     type: 'text',  placeholder: 'Kuala Lumpur' },
+  { name: 'customer_address',  label: t('field.address'),  type: 'text',  placeholder: 'Street address' },
+  { name: 'customer_postcode', label: t('field.postcode'), type: 'text',  placeholder: '50000' },
+])
 
 const createModalOpen = ref(false)
 const creating        = ref(false)
@@ -112,28 +131,35 @@ function openEdit(order: Order) {
     notes:             order.notes ?? '',
   }
   orderItems.value = order.order_items.map(i => ({
-    _key: _itemKey++,
-    name:    i.name,
-    variant: i.variant ?? '',
-    qty:     i.qty,
-    price:   i.price,
+    _key:       _itemKey++,
+    name:       i.name,
+    variant:    i.variant ?? '',
+    qty:        i.qty,
+    price:      i.price,
+    product_id: i.product_id,
+    variant_id: i.variant_id,
   }))
   createModalOpen.value = true
 }
 
 // ── Line items ────────────────────────────────────────────────
-type LineItem = { _key: number; name: string; variant: string; qty: number; price: number }
+type LineItem = { _key: number; name: string; variant: string; qty: number; price: number; product_id: string | null; variant_id: string | null }
 let _itemKey = 0
 const orderItems = ref<LineItem[]>([])
 
+// Available stock helper (used in product picker labels)
+function productAvailable(p: any): number {
+  return (p.variants ?? []).reduce((s: number, v: any) => s + (v.stock_quantity - v.stock_on_hold), 0)
+}
+
 function addCustomItem() {
-  orderItems.value.push({ _key: _itemKey++, name: '', variant: '', qty: 1, price: 0 })
+  orderItems.value.push({ _key: _itemKey++, name: '', variant: '', qty: 1, price: 0, product_id: null, variant_id: null })
 }
 
 function addFromProduct(productId: string) {
   const p = orderProducts.value?.find(x => x.id === productId)
   if (!p) return
-  orderItems.value.push({ _key: _itemKey++, name: p.name, variant: '', qty: 1, price: p.price })
+  orderItems.value.push({ _key: _itemKey++, name: p.name, variant: '', qty: 1, price: p.price, product_id: p.id, variant_id: null })
   productPickerOpen.value = false
   productPickerId.value   = undefined
 }
@@ -160,10 +186,12 @@ async function submitOrder() {
   }
 
   const itemPayload = validItems.map(i => ({
-    name:    i.name.trim(),
-    variant: i.variant.trim() || null,
-    qty:     i.qty,
-    price:   i.price,
+    name:       i.name.trim(),
+    variant:    i.variant.trim() || null,
+    qty:        i.qty,
+    price:      i.price,
+    product_id: i.product_id ?? null,
+    variant_id: i.variant_id ?? null,
   }))
 
   creating.value = true
@@ -237,32 +265,32 @@ async function submitOrder() {
 <template>
   <section class="space-y-6">
 
-    <AppPageHeader title="Orders" description="View and manage customer orders.">
+    <AppPageHeader :title="t('ord.title')" :description="t('ord.subtitle')">
       <template #actions>
-        <UButton icon="i-lucide-package-plus" @click="openCreate">New order</UButton>
+        <UButton icon="i-lucide-package-plus" @click="openCreate">{{ t('ord.new') }}</UButton>
       </template>
     </AppPageHeader>
 
     <AppStatusChips v-model="statusFilter" :chips="statusChips" />
 
     <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-      <UInput v-model="search" icon="i-lucide-search" placeholder="Search orders, customers…" class="w-full sm:w-72" />
+      <UInput v-model="search" icon="i-lucide-search" :placeholder="t('ord.search')" class="w-full sm:w-72" />
       <div class="flex items-center gap-2">
-        <span class="text-sm text-(--ui-text-muted)">{{ filtered.length }} orders</span>
+        <span class="text-sm text-(--ui-text-muted)">{{ filtered.length }} {{ t('ord.ordersLabel') }}</span>
         <UButton v-if="statusFilter !== 'all'" size="xs" variant="soft" color="neutral" icon="i-lucide-x" @click="statusFilter = 'all'">
-          Clear filter
+          {{ t('ord.clearFilter') }}
         </UButton>
       </div>
     </div>
 
     <AppListTable :row-count="filtered.length">
       <template #head>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap">Order</th>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted)">Customer</th>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap hidden sm:table-cell">Date</th>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) hidden md:table-cell">Items</th>
-        <th class="text-right px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap">Amount</th>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted)">Status</th>
+        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap">{{ t('ord.colOrder') }}</th>
+        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted)">{{ t('ord.colCustomer') }}</th>
+        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap hidden sm:table-cell">{{ t('ord.colDate') }}</th>
+        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) hidden md:table-cell">{{ t('ord.colItems') }}</th>
+        <th class="text-right px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap">{{ t('ord.colAmount') }}</th>
+        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted)">{{ t('ord.colStatus') }}</th>
         <th class="px-4 py-3 w-10" />
       </template>
 
@@ -290,9 +318,14 @@ async function submitOrder() {
         </td>
         <td class="px-4 py-3 text-(--ui-text-muted) whitespace-nowrap hidden sm:table-cell">{{ o.created_at.slice(0, 10) }}</td>
         <td class="px-4 py-3 hidden md:table-cell">
-          <span class="text-(--ui-text-muted)">
-            {{ o.order_items.reduce((s, i) => s + i.qty, 0) }} item{{ o.order_items.reduce((s, i) => s + i.qty, 0) !== 1 ? 's' : '' }}
-          </span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-(--ui-text-muted)">
+              {{ o.order_items.reduce((s, i) => s + i.qty, 0) }} item{{ o.order_items.reduce((s, i) => s + i.qty, 0) !== 1 ? 's' : '' }}
+            </span>
+            <UTooltip v-if="o.order_items.some(i => orderItemWarning(i))" :text="o.order_items.filter(i => orderItemWarning(i)).map(i => orderItemWarning(i)).join(', ')">
+              <UIcon name="i-lucide-alert-triangle" class="size-3.5 text-amber-500 shrink-0" />
+            </UTooltip>
+          </div>
         </td>
         <td class="px-4 py-3 text-right font-semibold text-(--ui-text-highlighted) whitespace-nowrap">{{ rm(orderTotal(o)) }}</td>
         <td class="px-4 py-3">
@@ -301,7 +334,7 @@ async function submitOrder() {
             :class="[ORDER_STATUS_CFG[o.status].color, ORDER_STATUS_CFG[o.status].bg]"
           >
             <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="ORDER_STATUS_CFG[o.status].dot" />
-            {{ o.status }}
+            {{ t('status.' + o.status.toLowerCase()) }}
           </span>
         </td>
         <td class="px-4 py-3">
@@ -313,17 +346,17 @@ async function submitOrder() {
         <div class="py-16 text-center">
           <UIcon name="i-lucide-package" class="size-10 text-(--ui-text-muted) mx-auto mb-3" />
           <p class="font-medium text-(--ui-text-highlighted)">
-            {{ pending ? 'Loading orders…' : 'No orders found' }}
+            {{ pending ? t('ord.loading') : t('ord.noOrders') }}
           </p>
           <p v-if="!pending" class="text-sm text-(--ui-text-muted) mt-1">
-            {{ statusFilter !== 'all' ? 'Try clearing the filter.' : 'Orders will appear here once created.' }}
+            {{ statusFilter !== 'all' ? t('ord.noOrdersFilter') : t('ord.noOrdersEmpty') }}
           </p>
         </div>
       </template>
     </AppListTable>
 
     <p class="text-xs text-(--ui-text-muted) text-right">
-      Total revenue (excl. cancelled): <span class="font-semibold text-(--ui-text-highlighted)">{{ rm(totalRevenue) }}</span>
+      {{ t('ord.totalRevenue') }} <span class="font-semibold text-(--ui-text-highlighted)">{{ rm(totalRevenue) }}</span>
     </p>
 
     <!-- ── Order detail slideover ─────────────────────────────── -->
@@ -340,10 +373,10 @@ async function submitOrder() {
                   :class="[ORDER_STATUS_CFG[selected.status].color, ORDER_STATUS_CFG[selected.status].bg]"
                 >
                   <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="ORDER_STATUS_CFG[selected.status].dot" />
-                  {{ selected.status }}
+                  {{ t('status.' + selected.status.toLowerCase()) }}
                 </span>
               </div>
-              <p class="text-sm text-(--ui-text-muted)">Placed on {{ selected.created_at.slice(0, 10) }}</p>
+              <p class="text-sm text-(--ui-text-muted)">{{ t('ord.placedOn') }} {{ selected.created_at.slice(0, 10) }}</p>
             </div>
             <UButton icon="i-lucide-x" variant="ghost" color="neutral" size="sm" @click="slideOpen = false" />
           </div>
@@ -352,7 +385,7 @@ async function submitOrder() {
 
             <!-- Timeline -->
             <div>
-              <p class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider mb-3">Order progress</p>
+              <p class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider mb-3">{{ t('ord.progress') }}</p>
               <div class="flex items-center">
                 <template v-for="(step, i) in selectedTimeline" :key="step.label">
                   <div class="flex flex-col items-center gap-1 flex-1">
@@ -379,7 +412,7 @@ async function submitOrder() {
 
             <!-- Customer -->
             <div class="rounded-xl border border-(--ui-border) bg-(--ui-bg-elevated) p-4 space-y-2">
-              <p class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">Customer</p>
+              <p class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">{{ t('invf.customer') }}</p>
               <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-full bg-(--ui-bg) border border-(--ui-border) flex items-center justify-center shrink-0">
                   <span class="text-xs font-bold text-(--ui-text-muted)">
@@ -409,14 +442,17 @@ async function submitOrder() {
 
             <!-- Items -->
             <div>
-              <p class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider mb-3">Items</p>
+              <p class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider mb-3">{{ t('ord.colItems') }}</p>
               <div class="rounded-xl border border-(--ui-border) overflow-hidden">
                 <div v-for="(item, idx) in selected.order_items" :key="item.id ?? idx" class="flex items-center gap-3 px-4 py-3 border-b border-(--ui-border) last:border-0">
                   <div class="w-9 h-9 rounded-lg bg-(--ui-bg-elevated) border border-(--ui-border) flex items-center justify-center shrink-0">
                     <UIcon name="i-lucide-package" class="size-4 text-(--ui-text-muted)" />
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-(--ui-text-highlighted) truncate">{{ item.name }}</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <p class="text-sm font-medium text-(--ui-text-highlighted) truncate">{{ item.name }}</p>
+                      <UBadge v-if="orderItemWarning(item)" :label="orderItemWarning(item)!" color="warning" variant="subtle" size="xs" />
+                    </div>
                     <p v-if="item.variant" class="text-xs text-(--ui-text-muted)">{{ item.variant }} · qty {{ item.qty }}</p>
                     <p v-else class="text-xs text-(--ui-text-muted)">qty {{ item.qty }}</p>
                   </div>
@@ -428,35 +464,48 @@ async function submitOrder() {
             <!-- Totals -->
             <div class="rounded-xl border border-(--ui-border) bg-(--ui-bg-elevated) divide-y divide-(--ui-border)">
               <div class="flex justify-between px-4 py-2.5 text-sm">
-                <span class="text-(--ui-text-muted)">Subtotal</span>
+                <span class="text-(--ui-text-muted)">{{ t('ord.subtotal') }}</span>
                 <span class="text-(--ui-text-highlighted)">{{ rm(selected.order_items.reduce((s, i) => s + i.price * i.qty, 0)) }}</span>
               </div>
               <div class="flex justify-between px-4 py-2.5 text-sm">
-                <span class="text-(--ui-text-muted)">Shipping</span>
+                <span class="text-(--ui-text-muted)">{{ t('ord.shipping') }}</span>
                 <span :class="selected.shipping === 0 ? 'text-teal-500 font-medium' : 'text-(--ui-text-highlighted)'">
-                  {{ selected.shipping === 0 ? 'Free' : rm(selected.shipping) }}
+                  {{ selected.shipping === 0 ? t('ord.free') : rm(selected.shipping) }}
                 </span>
               </div>
               <div class="flex justify-between px-4 py-3 font-semibold">
-                <span class="text-(--ui-text-highlighted)">Total</span>
+                <span class="text-(--ui-text-highlighted)">{{ t('ord.total') }}</span>
                 <span class="text-teal-500">{{ rm(orderTotal(selected)) }}</span>
               </div>
             </div>
 
           </div>
 
-          <div class="px-6 py-4 border-t border-(--ui-border) flex gap-3 shrink-0">
-            <UButton v-if="selected.status === 'Pending'" icon="i-lucide-pencil" variant="outline" color="neutral" size="sm" @click="openEdit(selected)">Edit</UButton>
-            <template v-if="selected.status !== 'Cancelled' && selected.status !== 'Delivered'">
-              <UButton icon="i-lucide-check-circle" class="flex-1" :loading="advancing === selected.id" @click="advanceStatus(selected.id)">
-                {{ selected.status === 'Pending' ? 'Confirm Order' : selected.status === 'Confirmed' ? 'Mark Shipped' : 'Mark Delivered' }}
-              </UButton>
-              <UButton variant="outline" color="error" icon="i-lucide-ban" :loading="advancing === selected.id" @click="cancelOrder(selected.id)">
-                Cancel
-              </UButton>
-            </template>
-            <UButton v-if="selected.status === 'Delivered'" icon="i-lucide-check" class="flex-1" variant="soft" color="success" disabled>Delivered</UButton>
-            <UButton v-if="selected.status === 'Cancelled'" icon="i-lucide-ban" class="flex-1" variant="soft" color="error" disabled>Cancelled</UButton>
+          <div class="px-6 py-4 border-t border-(--ui-border) flex flex-col gap-2 shrink-0">
+            <div class="flex gap-3">
+              <UButton v-if="selected.status === 'Pending'" icon="i-lucide-pencil" variant="outline" color="neutral" size="sm" @click="openEdit(selected)">{{ t('action.edit') }}</UButton>
+              <template v-if="selected.status !== 'Cancelled' && selected.status !== 'Delivered'">
+                <UButton icon="i-lucide-check-circle" class="flex-1" :loading="advancing === selected.id" @click="advanceStatus(selected.id)">
+                  {{ selected.status === 'Pending' ? t('ord.confirmOrder') : selected.status === 'Confirmed' ? t('ord.markShipped') : t('ord.markDelivered') }}
+                </UButton>
+                <UButton variant="outline" color="error" icon="i-lucide-ban" :loading="advancing === selected.id" @click="cancelOrder(selected.id)">
+                  {{ t('action.cancel') }}
+                </UButton>
+              </template>
+              <UButton v-if="selected.status === 'Delivered'" icon="i-lucide-check" class="flex-1" variant="soft" color="success" disabled>{{ t('status.delivered') }}</UButton>
+              <UButton v-if="selected.status === 'Cancelled'" icon="i-lucide-ban" class="flex-1" variant="soft" color="error" disabled>{{ t('status.cancelled') }}</UButton>
+            </div>
+            <UButton
+              v-if="selected.status !== 'Pending' && selected.status !== 'Cancelled'"
+              icon="i-lucide-file-text"
+              variant="outline"
+              color="neutral"
+              class="w-full"
+              :loading="creatingInvoice"
+              @click="createInvoice(selected.id)"
+            >
+              {{ t('ord.createInvoice') }}
+            </UButton>
           </div>
 
         </div>
@@ -465,27 +514,27 @@ async function submitOrder() {
 
     <!-- ── Create order slideover ─────────────────────────────── -->
     <AppFormSlideover
-      :title="orderMode === 'edit' ? 'Edit Order' : 'New Order'"
+      :title="orderMode === 'edit' ? t('ord.editOrder') : t('ord.newOrder')"
       :fields="CREATE_CUSTOMER_FIELDS"
       v-model="createForm"
       v-model:open="createModalOpen"
       :loading="creating"
-      :save-label="orderMode === 'edit' ? 'Save changes' : 'Create order'"
+      :save-label="orderMode === 'edit' ? t('action.save') : t('ord.createOrder')"
       @save="submitOrder"
     >
       <template #before>
         <div class="space-y-2">
-          <p class="text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">Customer</p>
+          <p class="text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">{{ t('invf.customer') }}</p>
           <USelectMenu
             v-model="selectedCustomerId"
             :items="(orderCustomers ?? []).map(c => ({ label: c.name, value: c.id, description: c.email ?? '' }))"
             value-key="value"
-            placeholder="Quick-fill from existing customer…"
+            :placeholder="t('ord.quickFill')"
             option-attribute="label"
             class="w-full"
           />
           <div v-if="orderMode === 'create' && !selectedCustomerId && createForm.customer_name" class="pt-1">
-            <UCheckbox v-model="saveAsCustomer" label="Save as new customer record" />
+            <UCheckbox v-model="saveAsCustomer" :label="t('ord.saveNewCust')" />
           </div>
         </div>
       </template>
@@ -493,7 +542,7 @@ async function submitOrder() {
       <!-- Items section -->
       <div class="space-y-3">
         <div class="h-px bg-(--ui-border)" />
-        <p class="text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">Items</p>
+        <p class="text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">{{ t('ord.colItems') }}</p>
 
         <div
           v-for="(item, idx) in orderItems"
@@ -501,7 +550,7 @@ async function submitOrder() {
           class="rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) p-3 space-y-3"
         >
           <div class="flex items-center justify-between">
-            <span class="text-xs font-medium text-(--ui-text-muted)">Item {{ idx + 1 }}</span>
+            <span class="text-xs font-medium text-(--ui-text-muted)">{{ t('ord.item') }} {{ idx + 1 }}</span>
             <button class="text-(--ui-text-muted) hover:text-red-500 transition-colors" @click="removeItem(item._key)">
               <UIcon name="i-lucide-x" class="size-3.5" />
             </button>
@@ -529,31 +578,35 @@ async function submitOrder() {
         </div>
 
         <div v-if="!orderItems.length" class="rounded-lg border border-dashed border-(--ui-border) py-6 text-center">
-          <p class="text-sm text-(--ui-text-muted)">No items yet — add one below</p>
+          <p class="text-sm text-(--ui-text-muted)">{{ t('ord.noItems') }}</p>
         </div>
 
         <div class="flex gap-2">
           <UButton icon="i-lucide-package-search" variant="outline" color="neutral" size="sm" class="flex-1" @click="productPickerOpen = true">
-            From product
+            {{ t('ord.fromProduct') }}
           </UButton>
           <UButton icon="i-lucide-plus" variant="outline" color="neutral" size="sm" class="flex-1" @click="addCustomItem">
-            Custom item
+            {{ t('ord.customItem') }}
           </UButton>
         </div>
 
         <div v-if="productPickerOpen" class="rounded-lg border border-(--ui-border) bg-(--ui-bg) p-3 space-y-2">
           <div class="flex items-center justify-between mb-1">
-            <p class="text-xs font-medium text-(--ui-text-muted)">Select a product</p>
+            <p class="text-xs font-medium text-(--ui-text-muted)">{{ t('ord.selectProduct') }}</p>
             <button class="text-(--ui-text-muted) hover:text-red-500" @click="productPickerOpen = false">
               <UIcon name="i-lucide-x" class="size-3.5" />
             </button>
           </div>
           <USelectMenu
             v-model="productPickerId"
-            :items="(orderProducts ?? []).map(p => ({ label: p.name, value: p.id, description: 'RM ' + p.price.toFixed(2) }))"
+            :items="(orderProducts ?? []).filter(p => p.is_active).map(p => ({
+              label: p.name,
+              value: p.id,
+              description: `RM ${p.price.toFixed(2)} · ${productAvailable(p) > 0 ? productAvailable(p) + ' in stock' : 'Out of stock'}`,
+            }))"
             value-key="value"
             option-attribute="label"
-            placeholder="Search products…"
+            :placeholder="t('ord.searchProds')"
             class="w-full"
             @update:model-value="addFromProduct"
           />
@@ -576,11 +629,11 @@ async function submitOrder() {
 
         <div class="rounded-lg bg-(--ui-bg-elevated) border border-(--ui-border) px-4 py-3 flex items-center justify-between">
           <div class="text-xs text-(--ui-text-muted) space-y-0.5">
-            <p>Subtotal: <span class="font-mono text-(--ui-text-highlighted)">RM {{ createSubtotal.toFixed(2) }}</span></p>
-            <p v-if="Number(createForm.shipping) > 0">Shipping: <span class="font-mono text-(--ui-text-highlighted)">RM {{ Number(createForm.shipping).toFixed(2) }}</span></p>
+            <p>{{ t('ord.subtotal') }}: <span class="font-mono text-(--ui-text-highlighted)">RM {{ createSubtotal.toFixed(2) }}</span></p>
+            <p v-if="Number(createForm.shipping) > 0">{{ t('ord.shipping') }}: <span class="font-mono text-(--ui-text-highlighted)">RM {{ Number(createForm.shipping).toFixed(2) }}</span></p>
           </div>
           <div class="text-right">
-            <p class="text-xs text-(--ui-text-muted)">Total</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('ord.total') }}</p>
             <p class="font-mono font-bold text-lg text-teal-500">RM {{ createTotal.toFixed(2) }}</p>
           </div>
         </div>

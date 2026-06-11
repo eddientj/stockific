@@ -4,43 +4,44 @@ import type { FieldDef } from '~/types/form'
 
 definePageMeta({ layout: 'admin' })
 
+const { t } = useLocale()
 const { settings, saving, save } = useSettings()
 
 const PAY_TERMS = ['Due on receipt', '7 days', '14 days', '30 days', '60 days', '90 days']
 
 // ── Field schemas ─────────────────────────────────────────────
-const BUSINESS_FIELDS: FieldDef[] = [
-  { name: 'company_name', label: 'Company Name',        type: 'text',  placeholder: 'e.g. Stockific Sdn Bhd', span: 2 },
-  { name: 'reg_number',   label: 'Registration Number', type: 'text',  placeholder: 'e.g. 202301012345' },
-  { name: 'email',        label: 'Business Email',      type: 'email', placeholder: 'hello@mybusiness.com' },
-  { name: 'phone',        label: 'Phone',               type: 'phone' },
-  { name: 'website',      label: 'Website',             type: 'url',   placeholder: 'https://mybusiness.com' },
-  { name: 'address',      label: 'Address',             type: 'text',  placeholder: 'No. 1, Jalan Utama', span: 2 },
-  { name: 'city',         label: 'City',                type: 'text',  placeholder: 'Kuala Lumpur' },
-  { name: 'postcode',     label: 'Postcode',            type: 'text',  placeholder: '50000' },
-  { name: 'country',      label: 'Country',             type: 'text',  placeholder: 'Malaysia', span: 2 },
-]
+const BUSINESS_FIELDS = computed<FieldDef[]>(() => [
+  { name: 'company_name', label: t('set.companyName'),  type: 'text',  placeholder: 'e.g. Stockific Sdn Bhd', span: 2 },
+  { name: 'reg_number',   label: t('set.regNumber'),    type: 'text',  placeholder: 'e.g. 202301012345' },
+  { name: 'email',        label: t('set.bizEmail'),     type: 'email', placeholder: 'hello@mybusiness.com' },
+  { name: 'phone',        label: t('field.phone'),      type: 'phone' },
+  { name: 'website',      label: t('set.website'),      type: 'url',   placeholder: 'https://mybusiness.com' },
+  { name: 'address',      label: t('field.address'),    type: 'text',  placeholder: 'No. 1, Jalan Utama', span: 2 },
+  { name: 'city',         label: t('field.city'),       type: 'text',  placeholder: 'Kuala Lumpur' },
+  { name: 'postcode',     label: t('field.postcode'),   type: 'text',  placeholder: '50000' },
+  { name: 'country',      label: t('set.country'),      type: 'text',  placeholder: 'Malaysia', span: 2 },
+])
 
-const INVOICE_FIELDS: FieldDef[] = [
-  { name: 'invoice_prefix',        label: 'Invoice Prefix',       type: 'text',   placeholder: 'INV' },
-  { name: 'default_tax_rate',      label: 'Default Tax Rate (%)', type: 'number', min: 0, max: 100, decimals: 2, placeholder: '6' },
-  { name: 'default_payment_terms', label: 'Default Payment Terms', type: 'select', span: 2,
-    options: PAY_TERMS.map(t => ({ label: t, value: t })) },
-  { name: 'invoice_notes', label: 'Default Invoice Notes', type: 'textarea',
+const INVOICE_FIELDS = computed<FieldDef[]>(() => [
+  { name: 'invoice_prefix',        label: t('set.invPrefix'),   type: 'text',   placeholder: 'INV' },
+  { name: 'default_tax_rate',      label: t('set.taxRate'),     type: 'number', min: 0, max: 100, decimals: 2, placeholder: '6' },
+  { name: 'default_payment_terms', label: t('set.payTerms'),    type: 'select', span: 2,
+    options: PAY_TERMS.map(v => ({ label: v, value: v })) },
+  { name: 'invoice_notes', label: t('set.invNotes'), type: 'textarea',
     placeholder: 'e.g. Payment via online banking. Bank charges to be borne by the buyer.', rows: 3, span: 2 },
-]
+])
 
-const BANK_FIELDS: FieldDef[] = [
-  { name: 'bank_name',    label: 'Bank Name',              type: 'text', placeholder: 'e.g. Maybank' },
-  { name: 'bank_holder',  label: 'Account Holder Name',   type: 'text', placeholder: 'Company or personal name' },
-  { name: 'bank_account', label: 'Bank Account Number',   type: 'text', placeholder: 'e.g. 1234567890', span: 2 },
-  { name: 'duitnow_id',   label: 'DuitNow / FPX ID',      type: 'text', placeholder: 'e.g. 0123456789 (phone or IC)', span: 2 },
-]
+const BANK_FIELDS = computed<FieldDef[]>(() => [
+  { name: 'bank_name',    label: t('set.bankName'),    type: 'text', placeholder: 'e.g. Maybank' },
+  { name: 'bank_holder',  label: t('set.bankHolder'),  type: 'text', placeholder: 'Company or personal name' },
+  { name: 'bank_account', label: t('set.bankAccount'), type: 'text', placeholder: 'e.g. 1234567890', span: 2 },
+  { name: 'duitnow_id',   label: t('set.duitnow'),     type: 'text', placeholder: 'e.g. 0123456789 (phone or IC)', span: 2 },
+])
 
-const BRANDING_FIELDS: FieldDef[] = [
-  { name: 'logo_url',     label: 'Logo',          type: 'image', span: 2 },
-  { name: 'accent_color', label: 'Accent Colour', type: 'color', span: 2 },
-]
+const BRANDING_FIELDS = computed<FieldDef[]>(() => [
+  { name: 'logo_url',     label: t('set.logo'),        type: 'image', span: 2 },
+  { name: 'accent_color', label: t('set.accentColor'), type: 'color', span: 2 },
+])
 
 // ── Form state ────────────────────────────────────────────────
 const form = reactive<Record<string, any>>({
@@ -124,10 +125,10 @@ async function handleSave() {
 
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-xl font-semibold text-(--ui-text-highlighted)">Settings</h1>
-        <p class="text-sm text-(--ui-text-muted) mt-0.5">Manage your business profile and invoice defaults</p>
+        <h1 class="text-xl font-semibold text-(--ui-text-highlighted)">{{ t('set.title') }}</h1>
+        <p class="text-sm text-(--ui-text-muted) mt-0.5">{{ t('set.subtitle') }}</p>
       </div>
-      <UButton label="Save changes" icon="i-lucide-save" :loading="saving" @click="handleSave" />
+      <UButton :label="t('set.save')" icon="i-lucide-save" :loading="saving" @click="handleSave" />
     </div>
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -139,7 +140,7 @@ async function handleSave() {
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-building-2" class="size-4 text-(--ui-text-muted)" />
-              <span class="font-medium text-(--ui-text-highlighted)">Business Information</span>
+              <span class="font-medium text-(--ui-text-highlighted)">{{ t('set.bizInfo') }}</span>
             </div>
           </template>
           <AppForm :fields="BUSINESS_FIELDS" :model-value="form" @update:model-value="updateForm" />
@@ -149,7 +150,7 @@ async function handleSave() {
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-file-text" class="size-4 text-(--ui-text-muted)" />
-              <span class="font-medium text-(--ui-text-highlighted)">Invoice Defaults</span>
+              <span class="font-medium text-(--ui-text-highlighted)">{{ t('set.invDefaults') }}</span>
             </div>
           </template>
           <AppForm :fields="INVOICE_FIELDS" :model-value="form" @update:model-value="updateForm" />
@@ -159,9 +160,9 @@ async function handleSave() {
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-landmark" class="size-4 text-(--ui-text-muted)" />
-              <span class="font-medium text-(--ui-text-highlighted)">Bank &amp; Payment Details</span>
+              <span class="font-medium text-(--ui-text-highlighted)">{{ t('set.bankDetails') }}</span>
             </div>
-            <p class="text-xs text-(--ui-text-muted) mt-0.5">These appear on every invoice PDF so customers know how to pay.</p>
+            <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('set.bankSub') }}</p>
           </template>
           <AppForm :fields="BANK_FIELDS" :model-value="form" @update:model-value="updateForm" />
         </UCard>
@@ -175,7 +176,7 @@ async function handleSave() {
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-palette" class="size-4 text-(--ui-text-muted)" />
-              <span class="font-medium text-(--ui-text-highlighted)">Branding</span>
+              <span class="font-medium text-(--ui-text-highlighted)">{{ t('set.branding') }}</span>
             </div>
           </template>
           <AppForm :fields="BRANDING_FIELDS" :columns="1" :model-value="form" @update:model-value="updateForm" />
@@ -186,7 +187,7 @@ async function handleSave() {
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-eye" class="size-4 text-(--ui-text-muted)" />
-              <span class="font-medium text-(--ui-text-highlighted)">Invoice Header Preview</span>
+              <span class="font-medium text-(--ui-text-highlighted)">{{ t('set.preview') }}</span>
             </div>
           </template>
 

@@ -5,21 +5,22 @@ import type { FieldDef } from '~/types/form'
 
 definePageMeta({ layout: 'admin' })
 
+const { t } = useLocale()
 const route  = useRoute()
 const router = useRouter()
 const toast  = useAppToast()
 const { customers, pending, refresh, createCustomer, updateCustomer, deleteCustomer, initials } = useCustomers()
 
 // ── Customer form schema ───────────────────────────────────────
-const CUSTOMER_FIELDS: FieldDef[] = [
-  { name: 'name',     label: 'Name',     type: 'text',     required: true, placeholder: 'Ahmad Razif', span: 2 },
-  { name: 'email',    label: 'Email',    type: 'email',    placeholder: 'email@example.com' },
-  { name: 'phone',    label: 'Phone',    type: 'phone' },
-  { name: 'address',  label: 'Address',  type: 'text',     placeholder: 'No 12, Jalan Puteri 2', span: 2 },
-  { name: 'city',     label: 'City',     type: 'text',     placeholder: 'Puchong' },
-  { name: 'postcode', label: 'Postcode', type: 'text',     placeholder: '47100' },
-  { name: 'notes',    label: 'Notes',    type: 'textarea', placeholder: 'Any notes about this customer…', rows: 3, span: 2 },
-]
+const CUSTOMER_FIELDS = computed<FieldDef[]>(() => [
+  { name: 'name',     label: t('field.name'),     type: 'text',     required: true, placeholder: 'Ahmad Razif', span: 2 },
+  { name: 'email',    label: t('field.email'),    type: 'email',    placeholder: 'email@example.com' },
+  { name: 'phone',    label: t('field.phone'),    type: 'phone' },
+  { name: 'address',  label: t('field.address'),  type: 'text',     placeholder: 'No 12, Jalan Puteri 2', span: 2 },
+  { name: 'city',     label: t('field.city'),     type: 'text',     placeholder: 'Puchong' },
+  { name: 'postcode', label: t('field.postcode'), type: 'text',     placeholder: '47100' },
+  { name: 'notes',    label: t('field.notes'),    type: 'textarea', placeholder: t('cus.notesPlaceholder'), rows: 3, span: 2 },
+])
 
 // ── Slideover state ───────────────────────────────────────────
 const slideOpen = ref(false)
@@ -131,13 +132,13 @@ async function bulkDoConfirm() {
 }
 
 // ── Table columns ─────────────────────────────────────────────
-const columns: TableColumn<CustomerRow>[] = [
-  { accessorKey: 'name',  header: 'Name',  enableSorting: true  },
-  { accessorKey: 'email', header: 'Email', enableSorting: false },
-  { accessorKey: 'phone', header: 'Phone', enableSorting: false },
-  { accessorKey: 'city',  header: 'City',  enableSorting: true  },
-  { id: 'actions',        header: ''                            },
-]
+const columns = computed<TableColumn<CustomerRow>[]>(() => [
+  { accessorKey: 'name',  header: t('cus.colName'),  enableSorting: true  },
+  { accessorKey: 'email', header: t('cus.colEmail'), enableSorting: false },
+  { accessorKey: 'phone', header: t('cus.colPhone'), enableSorting: false },
+  { accessorKey: 'city',  header: t('cus.colCity'),  enableSorting: true  },
+  { id: 'actions',        header: ''                                      },
+])
 
 const exportColumns: ExportColumn[] = [
   { key: 'name',     label: 'Name'     },
@@ -202,13 +203,13 @@ function resetFilters() {
 
 <template>
   <section>
-    <AppPageHeader title="Customers" description="Manage your customer contacts." />
+    <AppPageHeader :title="t('cus.title')" :description="t('cus.subtitle')" />
 
     <AppDataTable
       :columns="columns"
       :data="filteredCustomers"
       :loading="pending"
-      create-label="New customer"
+      :create-label="t('cus.new')"
       search-field="name"
       filterable
       :active-filters="activeFilterCount"
@@ -223,9 +224,9 @@ function resetFilters() {
       <template #empty>
         <div class="flex flex-col items-center py-16 gap-3">
           <UIcon name="i-lucide-users" class="size-10 text-(--ui-text-muted)" />
-          <p class="font-medium text-(--ui-text-highlighted)">No customers yet</p>
-          <p class="text-sm text-(--ui-text-muted)">Add your first customer to get started.</p>
-          <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click="openNew">New customer</UButton>
+          <p class="font-medium text-(--ui-text-highlighted)">{{ t('cus.noCustomers') }}</p>
+          <p class="text-sm text-(--ui-text-muted)">{{ t('cus.noCustomersHint') }}</p>
+          <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click="openNew">{{ t('cus.new') }}</UButton>
         </div>
       </template>
 
@@ -261,49 +262,48 @@ function resetFilters() {
 
     <!-- Customer form slideover -->
     <AppFormSlideover
-      :title="editing ? editing.name : 'New customer'"
+      :title="editing ? editing.name : t('cus.new')"
       :fields="CUSTOMER_FIELDS"
       v-model="form"
       v-model:open="slideOpen"
       :loading="saving"
-      :save-label="editing ? 'Update' : 'Create customer'"
+      :save-label="editing ? t('action.save') : t('cus.create')"
       @save="save"
     />
 
     <!-- Bulk edit — step 1: edit -->
-    <UModal :open="bulkEditOpen && bulkEditStep === 'edit'" title="Edit customers" @update:open="bulkEditOpen = $event">
+    <UModal :open="bulkEditOpen && bulkEditStep === 'edit'" :title="t('cus.bulkEdit')" @update:open="bulkEditOpen = $event">
       <template #body>
         <p class="text-sm text-(--ui-text-muted) mb-5">
-          Leave a field blank to keep each customer's current value. Changes apply to
-          <strong class="text-(--ui-text-highlighted)">{{ bulkEditIds.length }} customer{{ bulkEditIds.length !== 1 ? 's' : '' }}</strong>.
+          {{ t('cus.bulkSub') }}
         </p>
         <div class="space-y-4">
           <div class="grid grid-cols-2 gap-3">
-            <UFormField label="City">
+            <UFormField :label="t('field.city')">
               <UInput v-model="bulkEditFields.city" placeholder="e.g. Puchong" class="w-full" />
             </UFormField>
-            <UFormField label="Postcode">
+            <UFormField :label="t('field.postcode')">
               <UInput v-model="bulkEditFields.postcode" placeholder="e.g. 47100" class="w-full" />
             </UFormField>
           </div>
-          <UFormField label="Notes">
-            <UTextarea v-model="bulkEditFields.notes" placeholder="Overwrite notes for all selected customers…" :rows="3" class="w-full" />
+          <UFormField :label="t('field.notes')">
+            <UTextarea v-model="bulkEditFields.notes" :placeholder="t('cus.notesPlaceholder')" :rows="3" class="w-full" />
           </UFormField>
         </div>
       </template>
       <template #footer>
         <div class="flex gap-2">
-          <UButton icon="i-lucide-arrow-right" @click="bulkRequestConfirm">Apply to {{ bulkEditIds.length }}</UButton>
-          <UButton variant="outline" color="neutral" @click="bulkEditOpen = false">Cancel</UButton>
+          <UButton icon="i-lucide-arrow-right" @click="bulkRequestConfirm">{{ t('cus.applyTo') }} {{ bulkEditIds.length }}</UButton>
+          <UButton variant="outline" color="neutral" @click="bulkEditOpen = false">{{ t('action.cancel') }}</UButton>
         </div>
       </template>
     </UModal>
 
     <!-- Bulk edit — step 2: confirm -->
-    <UModal :open="bulkEditOpen && bulkEditStep === 'confirm'" title="Confirm bulk update" @update:open="bulkEditOpen = $event">
+    <UModal :open="bulkEditOpen && bulkEditStep === 'confirm'" :title="t('prod.confirmBulk')" @update:open="bulkEditOpen = $event">
       <template #body>
         <p class="text-sm text-(--ui-text-muted) mb-4">
-          Applying to <strong class="text-(--ui-text-highlighted)">{{ bulkEditIds.length }} customers</strong>:
+          {{ t('cus.applyTo') }} <strong class="text-(--ui-text-highlighted)">{{ bulkEditIds.length }} customers</strong>:
         </p>
         <ul class="space-y-1.5">
           <li v-for="line in bulkChangeSummary" :key="line" class="flex items-center gap-2 text-sm">
@@ -314,8 +314,8 @@ function resetFilters() {
       </template>
       <template #footer>
         <div class="flex gap-2">
-          <UButton icon="i-lucide-check" @click="bulkDoConfirm">Confirm</UButton>
-          <UButton variant="outline" color="neutral" @click="bulkEditStep = 'edit'">Back</UButton>
+          <UButton icon="i-lucide-check" @click="bulkDoConfirm">{{ t('action.confirm') }}</UButton>
+          <UButton variant="outline" color="neutral" @click="bulkEditStep = 'edit'">{{ t('action.back') }}</UButton>
         </div>
       </template>
     </UModal>
@@ -323,30 +323,30 @@ function resetFilters() {
     <!-- Filter slideover -->
     <AppSlideover
       v-model:open="filterSlideoverOpen"
-      title="Filter customers"
-      description="Narrow down the customer list."
-      submit-label="Apply"
-      cancel-label="Reset"
+      :title="t('cus.filterTitle')"
+      :description="t('cus.filterSub')"
+      :submit-label="t('action.apply')"
+      :cancel-label="t('action.reset')"
       @submit="filterSlideoverOpen = false"
       @cancel="resetFilters"
     >
       <div class="space-y-5">
-        <UFormField label="City">
+        <UFormField :label="t('field.city')">
           <USelectMenu
             v-model="filters.city"
             :items="cityOptions"
             value-key="value"
-            placeholder="All cities"
+            :placeholder="t('cus.allCities')"
             searchable
-            searchable-placeholder="Search cities…"
+            :searchable-placeholder="t('cus.searchCities')"
             class="w-full"
           />
         </UFormField>
 
         <div class="space-y-3">
-          <p class="text-sm font-medium text-(--ui-text-highlighted)">Contact info</p>
-          <UCheckbox v-model="filters.hasEmail" label="Has email address" />
-          <UCheckbox v-model="filters.hasPhone" label="Has phone number" />
+          <p class="text-sm font-medium text-(--ui-text-highlighted)">{{ t('cus.contactInfo') }}</p>
+          <UCheckbox v-model="filters.hasEmail" :label="t('cus.hasEmail')" />
+          <UCheckbox v-model="filters.hasPhone" :label="t('cus.hasPhone')" />
         </div>
       </div>
     </AppSlideover>

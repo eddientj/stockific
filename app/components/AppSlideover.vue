@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useLocale()
+
 const props = defineProps<{
   open:          boolean
   title:         string
@@ -35,10 +37,10 @@ function close() {
     <template #footer>
       <div class="flex gap-2 w-full">
         <UButton icon="i-lucide-check" :loading="loading" @click="emit('submit')">
-          {{ submitLabel ?? 'Save' }}
+          {{ submitLabel ?? t('action.save') }}
         </UButton>
         <UButton variant="outline" color="neutral" @click="close">
-          {{ cancelLabel ?? 'Cancel' }}
+          {{ cancelLabel ?? t('action.cancel') }}
         </UButton>
       </div>
     </template>

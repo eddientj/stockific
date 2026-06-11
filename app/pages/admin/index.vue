@@ -3,9 +3,23 @@ import type { ProductRow } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
-// ── Live data ─────────────────────────────────────────────
-const { data: products } = await useFetch<ProductRow[]>('/api/products')
+const { t } = useLocale()
 
+// ── Live data ─────────────────────────────────────────────
+const [{ data: products }, { data: dash }] = await Promise.all([
+  useFetch<ProductRow[]>('/api/products'),
+  useFetch<{
+    totalOrders: number
+    totalRevenue: number
+    currentRevenue: number
+    revenueChange: number
+    ordersByStatus: Record<string, number>
+    revenueChart: { date: string; revenue: number }[]
+    recentOrders: { id: string; order_number: string; customer_name: string; status: string; total: number; item_count: number; created_at: string }[]
+  }>('/api/dashboard'),
+])
+
+// ── Inventory from products ───────────────────────────────
 const liveStock = (p: ProductRow) =>
   (p.variants ?? []).reduce((s, v) => s + v.stock_quantity - v.stock_on_hold, 0)
 
@@ -22,68 +36,79 @@ const outOfStockCount = computed(() =>
   (products.value ?? []).filter(p => liveStock(p) === 0).length
 )
 
-const totalStockValue = computed(() =>
-  (products.value ?? []).reduce((sum, p) => sum + Number(p.price) * liveStock(p), 0)
+// ── Dashboard KPIs ────────────────────────────────────────
+const totalOrders   = computed(() => dash.value?.totalOrders   ?? 0)
+const totalRevenue  = computed(() => dash.value?.currentRevenue ?? 0)
+const revenueChange = computed(() => dash.value?.revenueChange  ?? 0)
+
+const ORDER_STATUS_CFG: Record<string, { bg: string }> = {
+  Delivered: { bg: 'bg-teal-500'   },
+  Shipped:   { bg: 'bg-sky-500'    },
+  Confirmed: { bg: 'bg-violet-500' },
+  Pending:   { bg: 'bg-amber-500'  },
+}
+const ORDER_STATUS_DOT: Record<string, string> = {
+  Delivered: 'bg-teal-400',
+  Shipped:   'bg-sky-400',
+  Confirmed: 'bg-violet-400',
+  Pending:   'bg-amber-400',
+  Cancelled: 'bg-red-400',
+}
+
+const orderStatus = computed(() =>
+  (['Delivered', 'Shipped', 'Confirmed', 'Pending'] as const).map(label => ({
+    label,
+    count: dash.value?.ordersByStatus[label] ?? 0,
+    bg:    ORDER_STATUS_CFG[label]!.bg,
+  }))
 )
 
-// ── Revenue sparkline (deterministic 30-day mock) ─────────
-// Uses sin-based seeding so SSR and client produce identical values
+const totalDisplayOrders = computed(() => orderStatus.value.reduce((s, o) => s + o.count, 0))
+
+const recentOrders = computed(() =>
+  (dash.value?.recentOrders ?? []).map(o => ({
+    id:       o.order_number,
+    customer: o.customer_name,
+    items:    o.item_count,
+    amount:   o.total,
+    status:   o.status,
+    dotClass: ORDER_STATUS_DOT[o.status] ?? 'bg-gray-400',
+  }))
+)
+
+// ── Revenue sparkline ─────────────────────────────────────
 const SVG_W = 560
 const SVG_H = 72
 
-const revenue30d = Array.from({ length: 30 }, (_, i) => {
-  const r1 = (Math.sin(i * 2.3 + 1.1) + 1) / 2
-  const r2 = (Math.sin(i * 5.7 + 2.4) + 1) / 2
-  const dayOfWeek = (3 + i) % 7 // start on a Wednesday
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-  const base = isWeekend ? 2800 : 1700
-  return Math.round(base + r1 * 900 + r2 * 500 - 100)
-})
+const revenue30d = computed(() =>
+  (dash.value?.revenueChart ?? []).map(d => d.revenue)
+)
 
-const totalRevenue = revenue30d.reduce((s, v) => s + v, 0)
-const prevRevenue  = Math.round(totalRevenue * 0.87) // fake last-month comparison
-const revenueChange = +(((totalRevenue - prevRevenue) / prevRevenue) * 100).toFixed(1)
+const maxR = computed(() => Math.max(...revenue30d.value, 1))
+const minR = computed(() => Math.min(...revenue30d.value) * 0.8)
 
-const maxR = Math.max(...revenue30d)
-const minR = Math.min(...revenue30d) - 100
-
-function ry(v: number) {
-  return SVG_H - ((v - minR) / (maxR - minR)) * SVG_H * 0.88
+function ry(v: number, max: number, min: number) {
+  return SVG_H - ((v - min) / (max - min || 1)) * SVG_H * 0.88
 }
 
-const chartPts = revenue30d.map((v, i) => ({
-  x: (i / (revenue30d.length - 1)) * SVG_W,
-  y: ry(v),
-}))
-const polyline = chartPts.map(p => `${p.x},${p.y}`).join(' ')
-const fillPath = (() => {
-  const first = chartPts[0]!
-  const last  = chartPts[chartPts.length - 1]!
-  return `M${first.x},${SVG_H} ${chartPts.map(p => `L${p.x},${p.y}`).join(' ')} L${last.x},${SVG_H} Z`
-})()
+const chartPts = computed(() =>
+  revenue30d.value.map((v, i) => ({
+    x: (i / Math.max(revenue30d.value.length - 1, 1)) * SVG_W,
+    y: ry(v, maxR.value, minR.value),
+  }))
+)
 
-// ── Order mock data ───────────────────────────────────────
-const totalOrders = 128
-const ordersChange = 8.3
-
-const orderStatus = [
-  { label: 'Delivered', count: 48, color: '#008080',  bg: 'bg-teal-500'   },
-  { label: 'Shipped',   count: 39, color: '#0EA5E9',  bg: 'bg-sky-500'    },
-  { label: 'Confirmed', count: 25, color: '#8B5CF6',  bg: 'bg-violet-500' },
-  { label: 'Pending',   count: 16, color: '#F59E0B',  bg: 'bg-amber-500'  },
-]
-
-const recentOrders = [
-  { id: 'ORD-1042', customer: 'Ahmad Razif',   items: 2, amount: 459.00, status: 'Shipped',   dotClass: 'bg-sky-400'    },
-  { id: 'ORD-1041', customer: 'Sarah Tan',     items: 1, amount: 89.90,  status: 'Delivered', dotClass: 'bg-teal-400'   },
-  { id: 'ORD-1040', customer: 'Wei Kang Lim',  items: 3, amount: 729.80, status: 'Confirmed', dotClass: 'bg-violet-400' },
-  { id: 'ORD-1039', customer: 'Priya Nair',    items: 1, amount: 149.90, status: 'Pending',   dotClass: 'bg-amber-400'  },
-  { id: 'ORD-1038', customer: 'Haziq Amir',    items: 2, amount: 299.00, status: 'Delivered', dotClass: 'bg-teal-400'   },
-  { id: 'ORD-1037', customer: 'Melissa Chong', items: 4, amount: 1148.60,status: 'Shipped',   dotClass: 'bg-sky-400'    },
-]
+const polyline = computed(() => chartPts.value.map(p => `${p.x},${p.y}`).join(' '))
+const fillPath = computed(() => {
+  const pts = chartPts.value
+  if (!pts.length) return ''
+  const first = pts[0]!
+  const last  = pts[pts.length - 1]!
+  return `M${first.x},${SVG_H} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${last.x},${SVG_H} Z`
+})
 
 // ── Helpers ───────────────────────────────────────────────
-const rm = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`
+const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`
 const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
 </script>
 
@@ -93,10 +118,10 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
     <!-- ── Page header ──────────────────────────────────── -->
     <div class="flex items-start justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-(--ui-text-highlighted)">Dashboard</h1>
-        <p class="mt-1 text-sm text-(--ui-text-muted)">Your store at a glance.</p>
+        <h1 class="text-2xl font-semibold tracking-tight text-(--ui-text-highlighted)">{{ t('dash.title') }}</h1>
+        <p class="mt-1 text-sm text-(--ui-text-muted)">{{ t('dash.subtitle') }}</p>
       </div>
-      <span class="text-xs text-(--ui-text-muted) mt-1.5">Last 30 days</span>
+      <span class="text-xs text-(--ui-text-muted) mt-1.5">{{ t('dash.last30') }}</span>
     </div>
 
     <!-- ── Stat cards ────────────────────────────────────── -->
@@ -116,7 +141,8 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
         <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">
           {{ rmK(totalRevenue) }}
         </p>
-        <p class="text-xs text-(--ui-text-muted) mt-0.5">Total revenue</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('dash.revenue') }}</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('dash.totalRevenue') }}</p>
       </UCard>
 
       <!-- Orders -->
@@ -125,13 +151,12 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
           <div class="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
             <UIcon name="i-lucide-shopping-cart" class="size-4 text-violet-500" />
           </div>
-          <span class="text-xs font-medium text-emerald-500 flex items-center gap-0.5">
-            <UIcon name="i-lucide-trending-up" class="size-3" />
-            +{{ ordersChange }}%
-          </span>
+          <NuxtLink to="/admin/orders" class="text-xs text-(--ui-text-muted) hover:text-(--ui-text) transition-colors">
+            View →
+          </NuxtLink>
         </div>
         <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">{{ totalOrders }}</p>
-        <p class="text-xs text-(--ui-text-muted) mt-0.5">Total orders</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('dash.totalOrders') }}</p>
       </UCard>
 
       <!-- Products -->
@@ -145,7 +170,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
           </NuxtLink>
         </div>
         <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">{{ totalProducts }}</p>
-        <p class="text-xs text-(--ui-text-muted) mt-0.5">Active products</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('dash.activeProducts') }}</p>
       </UCard>
 
       <!-- Alerts -->
@@ -159,7 +184,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
           </span>
         </div>
         <p class="text-2xl font-bold text-(--ui-text-highlighted) tracking-tight">{{ lowStockItems.length }}</p>
-        <p class="text-xs text-(--ui-text-muted) mt-0.5">Low stock items</p>
+        <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('dash.lowStock') }}</p>
       </UCard>
 
     </div>
@@ -172,12 +197,15 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
         <template #header>
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-semibold text-(--ui-text-highlighted)">Revenue</p>
-              <p class="text-xs text-(--ui-text-muted)">Daily revenue — last 30 days</p>
+              <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.revenueChart') }}</p>
+              <p class="text-xs text-(--ui-text-muted)">{{ t('dash.dailyRevenue') }}</p>
             </div>
             <div class="text-right">
               <p class="text-lg font-bold text-teal-500">{{ rm(totalRevenue) }}</p>
-              <p class="text-xs text-emerald-500">↑ vs last month</p>
+
+              <p class="text-xs" :class="revenueChange >= 0 ? 'text-emerald-500' : 'text-red-400'">
+              {{ t('dash.vsPrev') }}
+            </p>
             </div>
           </div>
         </template>
@@ -198,9 +226,9 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
             <line v-for="n in 3" :key="n" :x1="0" :x2="SVG_W" :y1="(SVG_H / 3) * n" :y2="(SVG_H / 3) * n"
               stroke="currentColor" class="text-(--ui-border)" stroke-width="0.5" />
             <!-- Fill -->
-            <path :d="fillPath" fill="url(#revGrad)" />
+            <path :d="fillPath || ''" fill="url(#revGrad)" />
             <!-- Line -->
-            <polyline :points="polyline" fill="none" stroke="#008080" stroke-width="2"
+            <polyline :points="polyline || ''" fill="none" stroke="#008080" stroke-width="2"
               stroke-linejoin="round" stroke-linecap="round" />
           </svg>
 
@@ -217,15 +245,15 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
       <UCard>
         <template #header>
           <div>
-            <p class="font-semibold text-(--ui-text-highlighted)">Orders</p>
-            <p class="text-xs text-(--ui-text-muted)">Breakdown by status</p>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.ordersChart') }}</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('dash.breakdownStatus') }}</p>
           </div>
         </template>
 
         <!-- Total -->
         <div class="text-center mb-5">
-          <p class="text-4xl font-bold text-(--ui-text-highlighted)">{{ totalOrders }}</p>
-          <p class="text-xs text-(--ui-text-muted) mt-1">this month</p>
+          <p class="text-4xl font-bold text-(--ui-text-highlighted)">{{ totalDisplayOrders }}</p>
+          <p class="text-xs text-(--ui-text-muted) mt-1">{{ t('dash.activeOrders') }}</p>
         </div>
 
         <!-- Stacked bar -->
@@ -234,7 +262,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
             v-for="s in orderStatus"
             :key="s.label"
             :class="s.bg"
-            :style="{ width: `${(s.count / totalOrders) * 100}%` }"
+            :style="{ width: `${totalDisplayOrders > 0 ? (s.count / totalDisplayOrders) * 100 : 0}%` }"
           />
         </div>
 
@@ -249,7 +277,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
               <div class="w-16 h-1.5 rounded-full bg-(--ui-bg-elevated) overflow-hidden">
                 <div
                   :class="s.bg"
-                  :style="{ width: `${(s.count / totalOrders) * 100}%` }"
+                  :style="{ width: `${totalDisplayOrders > 0 ? (s.count / totalDisplayOrders) * 100 : 0}%` }"
                   class="h-full rounded-full"
                 />
               </div>
@@ -262,7 +290,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
           to="/admin/orders"
           class="block mt-5 text-center text-xs text-(--ui-text-muted) hover:text-teal-500 transition-colors"
         >
-          View all orders →
+          {{ t('dash.viewAllOrders') }}
         </NuxtLink>
       </UCard>
     </div>
@@ -275,11 +303,11 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
         <template #header>
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-semibold text-(--ui-text-highlighted)">Recent orders</p>
-              <p class="text-xs text-(--ui-text-muted)">Latest activity</p>
+              <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.recentOrders') }}</p>
+              <p class="text-xs text-(--ui-text-muted)">{{ t('dash.latestActivity') }}</p>
             </div>
             <NuxtLink to="/admin/orders" class="text-xs text-(--ui-text-muted) hover:text-teal-500 transition-colors">
-              View all →
+              {{ t('dash.viewAll') }}
             </NuxtLink>
           </div>
         </template>
@@ -313,11 +341,11 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
         <template #header>
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-semibold text-(--ui-text-highlighted)">Low stock</p>
-              <p class="text-xs text-(--ui-text-muted)">Needs restocking soon</p>
+              <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.lowStockTitle') }}</p>
+              <p class="text-xs text-(--ui-text-muted)">{{ t('dash.needsRestock') }}</p>
             </div>
             <NuxtLink to="/admin/products" class="text-xs text-(--ui-text-muted) hover:text-teal-500 transition-colors">
-              View all →
+              {{ t('dash.viewAll') }}
             </NuxtLink>
           </div>
         </template>

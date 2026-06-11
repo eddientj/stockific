@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { FieldDef } from '~/types/form'
 
+const { t } = useLocale()
+
 const props = defineProps<{
   title: string
   fields: FieldDef[]
@@ -40,8 +42,8 @@ const emit = defineEmits<{
         </div>
 
         <div class="px-6 py-4 border-t border-(--ui-border) flex gap-3 shrink-0">
-          <UButton :label="saveLabel ?? 'Save'" :loading="loading" class="flex-1" @click="$emit('save')" />
-          <UButton variant="outline" color="neutral" label="Cancel" @click="$emit('update:open', false)" />
+          <UButton :label="saveLabel ?? t('action.save')" :loading="loading" class="flex-1" @click="$emit('save')" />
+          <UButton variant="outline" color="neutral" :label="t('action.cancel')" @click="$emit('update:open', false)" />
         </div>
 
       </div>

@@ -3,6 +3,8 @@ import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { ExportColumn } from '~/types'
 
+const { t } = useLocale()
+
 type Row = Record<string, any>
 
 const props = defineProps<{
@@ -196,7 +198,7 @@ function confirmBulkDelete() {
       <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-(--ui-border)">
         <UInput
           v-model="search"
-          placeholder="Search…"
+          :placeholder="t('action.search') + '…'"
           icon="i-lucide-search"
           size="sm"
           class="w-56"
@@ -212,14 +214,14 @@ function confirmBulkDelete() {
             size="sm"
             @click="emit('filter')"
           >
-            Filters
+            {{ t('action.filter') }}
             <UBadge v-if="activeFilters" :label="String(activeFilters)" color="primary" size="xs" class="ml-1" />
           </UButton>
 
           <!-- Import -->
           <label class="cursor-pointer">
             <UButton as="span" variant="outline" color="neutral" icon="i-lucide-upload" size="sm">
-              Import
+              {{ t('action.import') }}
             </UButton>
             <input ref="importInput" type="file" accept=".xlsx,.csv" class="sr-only" @change="handleImportFile" />
           </label>
@@ -233,7 +235,7 @@ function confirmBulkDelete() {
             size="sm"
             @click="handleExport"
           >
-            Export
+            {{ t('action.export') }}
           </UButton>
 
           <!-- Create -->
@@ -250,7 +252,7 @@ function confirmBulkDelete() {
           class="flex items-center gap-3 px-4 py-2 bg-brand-50 dark:bg-brand-950 border-b border-brand-200 dark:border-brand-800"
         >
           <span class="text-sm font-medium text-brand-700 dark:text-brand-300">
-            {{ selectedIds.size }} selected
+            {{ selectedIds.size }} {{ t('table.selected') }}
           </span>
           <UButton
             variant="ghost"
@@ -259,7 +261,7 @@ function confirmBulkDelete() {
             size="xs"
             @click="emit('bulk-edit', [...selectedIds])"
           >
-            Edit selected
+            {{ t('table.editSelected') }}
           </UButton>
           <UButton
             variant="ghost"
@@ -268,7 +270,7 @@ function confirmBulkDelete() {
             size="xs"
             @click="bulkDelete"
           >
-            Delete selected
+            {{ t('table.deleteSelected') }}
           </UButton>
           <UButton
             variant="ghost"
@@ -277,13 +279,13 @@ function confirmBulkDelete() {
             class="ml-auto"
             @click="selectedIds.clear()"
           >
-            Clear
+            {{ t('table.clear') }}
           </UButton>
         </div>
       </Transition>
 
       <!-- ── Loading ──────────────────────────────── -->
-      <div v-if="loading" class="py-16 text-center text-(--ui-text-muted) text-sm">Loading…</div>
+      <div v-if="loading" class="py-16 text-center text-(--ui-text-muted) text-sm">{{ t('table.loading') }}</div>
 
       <!-- ── Table ────────────────────────────────── -->
       <UTable
@@ -329,7 +331,7 @@ function confirmBulkDelete() {
         class="flex items-center justify-between px-4 py-3 border-t border-(--ui-border)"
       >
         <p class="text-xs text-(--ui-text-muted)">
-          {{ sorted.length }} items · page {{ page }} of {{ totalPages }}
+          {{ sorted.length }} {{ t('table.items') }} · {{ t('table.page') }} {{ page }} {{ t('table.of') }} {{ totalPages }}
         </p>
         <UPagination
           :page="page"
@@ -343,17 +345,15 @@ function confirmBulkDelete() {
     </UCard>
 
     <!-- ── Bulk delete confirmation ───────────────────── -->
-    <UModal v-model:open="deleteConfirmOpen" title="Confirm deletion" :ui="{ footer: 'justify-end' }">
+    <UModal v-model:open="deleteConfirmOpen" :title="t('table.confirmDelete')" :ui="{ footer: 'justify-end' }">
       <template #body>
         <p class="text-sm text-(--ui-text-muted)">
-          You're about to permanently delete
-          <strong class="text-(--ui-text-highlighted)">{{ selectedIds.size }} item{{ selectedIds.size !== 1 ? 's' : '' }}</strong>.
-          This cannot be undone.
+          {{ t('table.deleteWarning', { n: selectedIds.size }) }}
         </p>
       </template>
       <template #footer>
-        <UButton variant="outline" color="neutral" @click="deleteConfirmOpen = false">Cancel</UButton>
-        <UButton color="error" icon="i-lucide-trash-2" @click="confirmBulkDelete">Delete</UButton>
+        <UButton variant="outline" color="neutral" @click="deleteConfirmOpen = false">{{ t('action.cancel') }}</UButton>
+        <UButton color="error" icon="i-lucide-trash-2" @click="confirmBulkDelete">{{ t('action.delete') }}</UButton>
       </template>
     </UModal>
 

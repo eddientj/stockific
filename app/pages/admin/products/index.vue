@@ -5,6 +5,8 @@ import type { FieldDef } from '~/types/form'
 
 definePageMeta({ layout: 'admin' })
 
+const { t } = useLocale()
+
 type Product = ProductRow
 type ProductTableRow = Product & { available: number; on_hold: number }
 
@@ -55,15 +57,15 @@ const tableData = computed((): ProductTableRow[] =>
 )
 
 // ── Table columns ─────────────────────────────────────────────
-const columns: TableColumn<ProductTableRow>[] = [
-  { accessorKey: 'name',      header: 'Product',   enableSorting: true  },
-  { accessorKey: 'category',  header: 'Category',  enableSorting: false },
-  { accessorKey: 'price',     header: 'Price',     enableSorting: true  },
-  { accessorKey: 'available', header: 'Available', enableSorting: true  },
-  { accessorKey: 'on_hold',   header: 'On Hold',   enableSorting: true  },
-  { accessorKey: 'status',    header: 'Status',    enableSorting: false },
-  { id: 'actions',            header: ''           },
-]
+const columns = computed<TableColumn<ProductTableRow>[]>(() => [
+  { accessorKey: 'name',      header: t('prod.colProduct'),   enableSorting: true  },
+  { accessorKey: 'category',  header: t('prod.colCategory'),  enableSorting: false },
+  { accessorKey: 'price',     header: t('prod.colPrice'),     enableSorting: true  },
+  { accessorKey: 'available', header: t('prod.colAvailable'), enableSorting: true  },
+  { accessorKey: 'on_hold',   header: t('prod.colOnHold'),    enableSorting: true  },
+  { accessorKey: 'status',    header: t('prod.colStatus'),    enableSorting: false },
+  { id: 'actions',            header: ''                      },
+])
 
 const exportColumns: ExportColumn[] = [
   { key: 'name',        label: 'Product'     },
@@ -90,20 +92,20 @@ const exportData = computed(() =>
 
 // ── Product form schema (dynamic — categories loaded async) ────
 const productFields = computed((): FieldDef[] => [
-  { name: 'name',           label: 'Name',        type: 'text',     required: true, placeholder: 'e.g. Scarlet & Violet Booster Pack', span: 2 },
-  { name: 'description',    label: 'Description', type: 'textarea', placeholder: 'Optional product description…', rows: 3, span: 2 },
-  { name: 'price',          label: 'Price (RM)',  type: 'number',   min: 0, max: 1000000, decimals: 2, placeholder: '0.00', mono: true },
-  { name: 'category_id',    label: 'Category',    type: 'select',   placeholder: '— None —', options: [
-    { label: '— None —', value: null },
+  { name: 'name',           label: t('field.name'),        type: 'text',     required: true, placeholder: 'e.g. Scarlet & Violet Booster Pack', span: 2 },
+  { name: 'description',    label: t('prod.description'),  type: 'textarea', placeholder: t('prod.descPlaceholder'), rows: 3, span: 2 },
+  { name: 'price',          label: t('prod.priceRM'),      type: 'number',   min: 0, max: 1000000, decimals: 2, placeholder: '0.00', mono: true },
+  { name: 'category_id',    label: t('field.category'),    type: 'select',   placeholder: t('prod.noneCategory'), options: [
+    { label: t('prod.noneCategory'), value: null },
     ...(categories.value ?? []).map(c => ({ label: c.name, value: c.id })),
   ]},
-  { name: 'is_active',      label: 'Status',      type: 'select',   options: [
-    { label: 'Listed for sale', value: true  },
-    { label: 'Unlisted',        value: false },
+  { name: 'is_active',      label: t('field.status'),      type: 'select',   options: [
+    { label: t('prod.statusListed'),   value: true  },
+    { label: t('prod.statusUnlisted'), value: false },
   ]},
-  { name: 'stock_quantity', label: 'Stock',   type: 'number', min: 0, max: 99999, help: 'Total units on hand' },
-  { name: 'stock_on_hold',  label: 'On Hold', type: 'number', min: 0, max: 99999, help: 'Reserved for unpaid orders' },
-  { name: 'image_url',      label: 'Image',        type: 'image',   span: 2 },
+  { name: 'stock_quantity', label: t('prod.colAvailable'), type: 'number', min: 0, max: 99999, help: t('prod.stockHelp') },
+  { name: 'stock_on_hold',  label: t('prod.colOnHold'),    type: 'number', min: 0, max: 99999, help: t('prod.holdHelp') },
+  { name: 'image_url',      label: t('prod.image'),        type: 'image',   span: 2 },
 ])
 
 // ── Product slideover ──────────────────────────────────────────
@@ -310,13 +312,13 @@ function handleImport(rows: Record<string, unknown>[]) {
 
 <template>
   <section>
-    <AppPageHeader title="Products" description="Manage your inventory." />
+    <AppPageHeader :title="t('prod.title')" :description="t('prod.subtitle')" />
 
     <AppDataTable
       :columns="columns"
       :data="tableData"
       :loading="pending"
-      create-label="New product"
+      :create-label="t('prod.new')"
       search-field="name"
       filterable
       :active-filters="activeFilterCount"
@@ -332,9 +334,9 @@ function handleImport(rows: Record<string, unknown>[]) {
       <template #empty>
         <div class="flex flex-col items-center py-16 gap-3">
           <UIcon name="i-lucide-package" class="size-10 text-(--ui-text-muted)" />
-          <p class="font-medium text-(--ui-text-highlighted)">No products yet</p>
-          <p class="text-sm text-(--ui-text-muted)">Add your first product to get started.</p>
-          <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click="openNew">New product</UButton>
+          <p class="font-medium text-(--ui-text-highlighted)">{{ t('prod.empty') }}</p>
+          <p class="text-sm text-(--ui-text-muted)">{{ t('prod.emptyHint') }}</p>
+          <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click="openNew">{{ t('prod.new') }}</UButton>
         </div>
       </template>
 
@@ -388,59 +390,59 @@ function handleImport(rows: Record<string, unknown>[]) {
 
     <!-- Product form slideover -->
     <AppFormSlideover
-      :title="editingProduct ? editingProduct.name : 'New product'"
+      :title="editingProduct ? editingProduct.name : t('prod.new')"
       :fields="productFields"
       v-model="form"
       v-model:open="productSlideoverOpen"
       :loading="saving"
-      :save-label="editingProduct ? 'Update' : 'Create product'"
+      :save-label="editingProduct ? t('action.save') : t('prod.create')"
       @save="save"
     />
 
     <!-- Filter slideover -->
     <AppSlideover
       v-model:open="filterSlideoverOpen"
-      title="Filter products"
-      description="Narrow down the product list."
-      submit-label="Apply"
-      cancel-label="Reset"
+      :title="t('prod.filter')"
+      :description="t('prod.filterHint')"
+      :submit-label="t('action.apply')"
+      :cancel-label="t('action.reset')"
       @submit="filterSlideoverOpen = false"
       @cancel="resetFilters"
     >
       <div class="space-y-5">
-        <UFormField label="Category">
+        <UFormField :label="t('prod.colCategory')">
           <USelectMenu
             v-model="filters.categoryIds"
             :items="(categories ?? []).map(c => ({ label: c.name, value: c.id }))"
             multiple
             searchable
-            searchable-placeholder="Search categories…"
-            placeholder="All categories"
+            :searchable-placeholder="t('prod.searchCat')"
+            :placeholder="t('prod.allCategories')"
             value-key="value"
             class="w-full"
           />
         </UFormField>
 
-        <UFormField label="Status">
+        <UFormField :label="t('prod.colStatus')">
           <USelect
             v-model="filters.status"
             :items="[
-              { label: 'All',      value: 'all'      },
-              { label: 'Listed',   value: 'active'   },
-              { label: 'Unlisted', value: 'inactive' },
+              { label: t('prod.statusAll'),      value: 'all'      },
+              { label: t('prod.statusListed'),   value: 'active'   },
+              { label: t('prod.statusUnlisted'), value: 'inactive' },
             ]"
             class="w-full"
           />
         </UFormField>
 
-        <UFormField label="Stock level">
+        <UFormField :label="t('prod.stockLevel')">
           <USelect
             v-model="filters.stock"
             :items="[
-              { label: 'All',             value: 'all'     },
-              { label: 'In stock',        value: 'instock' },
-              { label: 'Low stock (< 5)', value: 'low'     },
-              { label: 'Out of stock',    value: 'out'     },
+              { label: t('prod.stockAll'),  value: 'all'     },
+              { label: t('prod.stockIn'),   value: 'instock' },
+              { label: t('prod.stockLow'),  value: 'low'     },
+              { label: t('prod.stockOut'),  value: 'out'     },
             ]"
             class="w-full"
           />
@@ -453,51 +455,51 @@ function handleImport(rows: Record<string, unknown>[]) {
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-pencil" class="size-5 text-brand-500" />
-          <h3 class="text-base font-semibold text-(--ui-text-highlighted)">Edit {{ bulkEditIds.length }} products</h3>
+          <h3 class="text-base font-semibold text-(--ui-text-highlighted)">{{ t('prod.bulkEdit', { n: bulkEditIds.length }) }}</h3>
         </div>
       </template>
       <template #body>
         <p class="text-sm text-(--ui-text-muted) mb-5">
-          Leave a field on <strong class="text-(--ui-text)">No change</strong> to keep each product's current value.
+          {{ t('prod.bulkHint') }}
         </p>
         <div class="space-y-4">
-          <UFormField label="Category">
+          <UFormField :label="t('prod.colCategory')">
             <USelect
               v-model="bulkEditFields.category_id"
               :items="[
-                { label: '— No change —',   value: NO_CHANGE },
-                { label: 'Remove category', value: 'null'    },
+                { label: t('prod.noChange'),      value: NO_CHANGE },
+                { label: t('prod.removeCat'),     value: 'null'    },
                 ...(categories ?? []).map(c => ({ label: c.name, value: c.id })),
               ]"
               class="w-full"
             />
           </UFormField>
-          <UFormField label="Status">
+          <UFormField :label="t('prod.colStatus')">
             <USelect
               v-model="bulkEditFields.is_active"
               :items="[
-                { label: '— No change —',   value: NO_CHANGE },
-                { label: 'Listed for sale', value: 'true'    },
-                { label: 'Unlisted',        value: 'false'   },
+                { label: t('prod.noChange'),       value: NO_CHANGE },
+                { label: t('prod.statusListed'),   value: 'true'    },
+                { label: t('prod.statusUnlisted'), value: 'false'   },
               ]"
               class="w-full"
             />
           </UFormField>
-          <UFormField label="Price (RM)">
+          <UFormField :label="t('prod.priceRM')">
             <UInput
               :value="bulkEditFields.price"
               type="number" min="0" max="1000000" step="0.01"
-              placeholder="Leave blank for no change"
+              :placeholder="t('prod.blankNoChange')"
               class="w-full"
               @keydown="blockBulkE"
               @input="clampBulkPrice($event)"
             />
           </UFormField>
-          <UFormField label="Stock quantity">
+          <UFormField :label="t('prod.stockQty')">
             <UInput
               :value="bulkEditFields.stock"
               type="number" min="0" max="99999"
-              placeholder="Leave blank for no change"
+              :placeholder="t('prod.blankNoChange')"
               class="w-full"
               @keydown="blockBulkE"
               @input="clampBulkStock($event)"
@@ -507,8 +509,8 @@ function handleImport(rows: Record<string, unknown>[]) {
       </template>
       <template #footer>
         <div class="flex gap-2">
-          <UButton icon="i-lucide-arrow-right" color="primary" @click="bulkRequestConfirm">Apply to all {{ bulkEditIds.length }}</UButton>
-          <UButton variant="outline" color="neutral" @click="bulkEditOpen = false">Cancel</UButton>
+          <UButton icon="i-lucide-arrow-right" color="primary" @click="bulkRequestConfirm">{{ t('prod.applyAll', { n: bulkEditIds.length }) }}</UButton>
+          <UButton variant="outline" color="neutral" @click="bulkEditOpen = false">{{ t('action.cancel') }}</UButton>
         </div>
       </template>
     </UModal>
@@ -518,13 +520,12 @@ function handleImport(rows: Record<string, unknown>[]) {
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-triangle-alert" class="size-5 text-warning-500" />
-          <h3 class="text-base font-semibold text-(--ui-text-highlighted)">Confirm bulk update</h3>
+          <h3 class="text-base font-semibold text-(--ui-text-highlighted)">{{ t('prod.confirmBulk') }}</h3>
         </div>
       </template>
       <template #body>
         <p class="text-sm text-(--ui-text-muted) mb-4">
-          You are about to apply the following changes to
-          <strong class="text-(--ui-text)">{{ bulkEditIds.length }} products</strong>. This cannot be undone.
+          {{ t('prod.confirmBulkDesc', { n: bulkEditIds.length }) }}
         </p>
         <ul class="space-y-1.5">
           <li v-for="line in bulkChangeSummary" :key="line" class="flex items-center gap-2 text-sm">
@@ -535,8 +536,8 @@ function handleImport(rows: Record<string, unknown>[]) {
       </template>
       <template #footer>
         <div class="flex gap-2">
-          <UButton icon="i-lucide-check" color="primary" @click="bulkDoConfirm">Confirm</UButton>
-          <UButton variant="outline" color="neutral" @click="bulkEditStep = 'edit'">Back</UButton>
+          <UButton icon="i-lucide-check" color="primary" @click="bulkDoConfirm">{{ t('action.confirm') }}</UButton>
+          <UButton variant="outline" color="neutral" @click="bulkEditStep = 'edit'">{{ t('action.back') }}</UButton>
         </div>
       </template>
     </UModal>

@@ -26,20 +26,22 @@ export default defineEventHandler(async (event) => {
   // Insert items
   if (Array.isArray(body.items) && body.items.length > 0) {
     const items = body.items.map((i: any) => ({
-      order_id: order.id,
-      name:     String(i.name    ?? '').trim() || 'Item',
-      variant:  String(i.variant ?? '').trim() || null,
-      qty:      Math.max(1, Number(i.qty)   || 1),
-      price:    Math.max(0, Number(i.price) || 0),
+      order_id:   order.id,
+      name:       String(i.name    ?? '').trim() || 'Item',
+      variant:    String(i.variant ?? '').trim() || null,
+      qty:        Math.max(1, Number(i.qty)   || 1),
+      price:      Math.max(0, Number(i.price) || 0),
+      product_id: i.product_id ?? null,
+      variant_id: i.variant_id ?? null,
     }))
     const { error: iErr } = await supabase.from('order_items').insert(items)
     if (iErr) throw createError({ statusCode: 500, statusMessage: iErr.message })
   }
 
-  // Return full order with items
+  // Return full order with items + product stock info for frontend warnings
   const { data: full, error: fErr } = await supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*, order_items(*, product:products(id, name, is_active, variants(stock_quantity, stock_on_hold)))')
     .eq('id', order.id)
     .single()
 

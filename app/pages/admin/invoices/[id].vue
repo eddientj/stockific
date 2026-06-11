@@ -18,6 +18,7 @@ type Payment = {
 
 definePageMeta({ layout: 'admin' })
 
+const { t } = useLocale()
 const route  = useRoute()
 const router = useRouter()
 const toast  = useAppToast()
@@ -174,12 +175,12 @@ const moreActions = computed(() => {
 
   if (status.value === 'sent') {
     actions.push({
-      label: 'Mark as overdue',
+      label: t('invf.markOverdue'),
       icon:  'i-lucide-clock-alert',
       onSelect() { save('overdue') },
     })
     actions.push({
-      label: 'Revert to draft',
+      label: t('invf.revertDraft'),
       icon:  'i-lucide-rotate-ccw',
       onSelect() { save('draft') },
     })
@@ -187,7 +188,7 @@ const moreActions = computed(() => {
 
   if (status.value === 'overdue') {
     actions.push({
-      label: 'Revert to sent',
+      label: t('invf.revertSent'),
       icon:  'i-lucide-rotate-ccw',
       onSelect() { save('sent') },
     })
@@ -195,7 +196,7 @@ const moreActions = computed(() => {
 
   if (status.value === 'cancelled') {
     actions.push({
-      label: 'Revert to draft',
+      label: t('invf.revertDraft'),
       icon:  'i-lucide-rotate-ccw',
       onSelect() { save('draft') },
     })
@@ -204,7 +205,7 @@ const moreActions = computed(() => {
   if (status.value !== 'cancelled' && status.value !== 'paid') {
     if (actions.length) actions.push({ type: 'separator' as const })
     actions.push({
-      label: 'Cancel invoice',
+      label: t('invf.cancelInv'),
       icon:  'i-lucide-ban',
       color: 'error' as const,
       onSelect() { save('cancelled') },
@@ -213,7 +214,7 @@ const moreActions = computed(() => {
 
   if (status.value === 'paid') {
     actions.push({
-      label: 'Mark as refunded',
+      label: t('invf.markRefunded'),
       icon:  'i-lucide-undo-2',
       color: 'error' as const,
       onSelect() { save('refunded') },
@@ -352,10 +353,10 @@ const METHOD_ICONS: Record<string, string> = {
         <UButton icon="i-lucide-arrow-left" variant="ghost" color="neutral" size="sm" to="/admin/invoices" />
         <div>
           <h1 class="text-xl font-semibold text-(--ui-text-highlighted)">
-            {{ isNew ? 'New Invoice' : existing?.invoice_number }}
+            {{ isNew ? t('invf.new') : existing?.invoice_number }}
           </h1>
           <p v-if="!isNew" class="text-xs text-(--ui-text-muted)">
-            Last updated {{ existing?.updated_at?.slice(0, 10) }}
+            {{ t('invf.lastUpdated') }} {{ existing?.updated_at?.slice(0, 10) }}
             ·
             <span :class="STATUS_COLORS[status]">{{ STATUS_LABELS[status] }}</span>
           </p>
@@ -364,10 +365,10 @@ const METHOD_ICONS: Record<string, string> = {
 
       <div class="flex items-center gap-2">
         <!-- Ghost icon actions -->
-        <UTooltip v-if="!isNew" text="Share via WhatsApp">
+        <UTooltip v-if="!isNew" :text="t('invf.whatsapp')">
           <UButton icon="i-lucide-message-circle" variant="ghost" color="neutral" size="sm" @click="shareWhatsApp" />
         </UTooltip>
-        <UTooltip text="Print / Save as PDF">
+        <UTooltip :text="t('invf.print')">
           <UButton icon="i-lucide-printer" variant="ghost" color="neutral" size="sm" @click="printInvoice" />
         </UTooltip>
 
@@ -388,7 +389,7 @@ const METHOD_ICONS: Record<string, string> = {
           :loading="saving"
           @click="save('sent')"
         >
-          Mark as sent
+          {{ t('invf.markSent') }}
         </UButton>
         <UButton
           v-if="!isNew && (status === 'sent' || status === 'overdue')"
@@ -398,11 +399,11 @@ const METHOD_ICONS: Record<string, string> = {
           icon="i-lucide-check"
           @click="paymentModalOpen = true"
         >
-          Mark paid
+          {{ t('invf.markPaid') }}
         </UButton>
 
         <UButton icon="i-lucide-save" size="sm" :loading="saving" @click="save()">
-          {{ isNew ? 'Create invoice' : 'Save' }}
+          {{ isNew ? t('invf.create') : t('invf.save') }}
         </UButton>
       </div>
     </div>
@@ -416,33 +417,33 @@ const METHOD_ICONS: Record<string, string> = {
         <!-- Customer + dates -->
         <UCard>
           <template #header>
-            <p class="font-semibold text-(--ui-text-highlighted)">Invoice details</p>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('invf.details') }}</p>
           </template>
           <div class="space-y-4">
-            <UFormField label="Customer" name="customer">
+            <UFormField :label="t('invf.customer')" name="customer">
               <USelectMenu
                 v-model="selectedCustomerId"
                 :items="(customers ?? []).map(c => ({ label: c.name, value: c.id, description: c.email ?? '' }))"
                 value-key="value"
-                placeholder="Select a customer…"
+                :placeholder="t('invf.selectCust')"
                 searchable
-                searchable-placeholder="Search customers…"
+                :searchable-placeholder="t('invf.searchCust')"
                 class="w-full"
               >
                 <template #trailing>
-                  <UButton icon="i-lucide-user-plus" variant="ghost" color="neutral" size="xs" to="/admin/customers?create=1" title="Add new customer" @click.stop />
+                  <UButton icon="i-lucide-user-plus" variant="ghost" color="neutral" size="xs" to="/admin/customers?create=1" :title="t('invf.addNewCust')" @click.stop />
                 </template>
               </USelectMenu>
             </UFormField>
 
             <div class="grid grid-cols-2 gap-3">
-              <AppField :field="{ name: 'issue_date', label: 'Issue date', type: 'date' }" :model-value="issueDate" @update:model-value="issueDate = $event" />
-              <UFormField label="Payment terms" name="pay_terms">
+              <AppField :field="{ name: 'issue_date', label: t('invf.issueDate'), type: 'date' }" :model-value="issueDate" @update:model-value="issueDate = $event" />
+              <UFormField :label="t('invf.payTerms')" name="pay_terms">
                 <USelectMenu v-model="payTerms" :items="PAY_TERMS" class="w-full" />
               </UFormField>
             </div>
 
-            <AppField :field="{ name: 'due_date', label: 'Due date', type: 'date' }" :model-value="dueDate" @update:model-value="dueDate = $event" />
+            <AppField :field="{ name: 'due_date', label: t('invf.dueDate'), type: 'date' }" :model-value="dueDate" @update:model-value="dueDate = $event" />
           </div>
         </UCard>
 
@@ -450,32 +451,32 @@ const METHOD_ICONS: Record<string, string> = {
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
-              <p class="font-semibold text-(--ui-text-highlighted)">Line items</p>
-              <UButton icon="i-lucide-plus" variant="ghost" color="neutral" size="xs" @click="addItem">Add item</UButton>
+              <p class="font-semibold text-(--ui-text-highlighted)">{{ t('invf.lineItems') }}</p>
+              <UButton icon="i-lucide-plus" variant="ghost" color="neutral" size="xs" @click="addItem">{{ t('invf.addItem') }}</UButton>
             </div>
           </template>
 
           <div class="space-y-2">
             <div v-for="(item, idx) in items" :key="item._key" class="rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) p-3 space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-(--ui-text-muted)">Item {{ idx + 1 }}</span>
+                <span class="text-xs font-medium text-(--ui-text-muted)">{{ t('invf.item') }} {{ idx + 1 }}</span>
                 <UButton icon="i-lucide-x" variant="ghost" color="neutral" size="xs" :disabled="items.length <= 1" @click="removeItem(item._key)" />
               </div>
               <USelectMenu
                 :items="(products ?? []).filter(p => p.is_active).map(p => ({ label: p.name, value: p.id, description: `RM ${p.price.toFixed(2)}` }))"
                 value-key="value"
-                placeholder="Quick-fill from product…"
+                :placeholder="t('invf.quickFill')"
                 searchable
-                searchable-placeholder="Search products…"
+                :searchable-placeholder="t('invf.searchProds')"
                 class="w-full"
                 @update:model-value="fillFromProduct(item, $event as string)"
               />
-              <UFormField label="Description">
-                <UInput v-model="item.description" placeholder="Item description" class="w-full" />
+              <UFormField :label="t('invf.description')">
+                <UInput v-model="item.description" :placeholder="t('invf.itemDesc')" class="w-full" />
               </UFormField>
               <div class="grid grid-cols-2 gap-2">
-                <AppField :field="{ name: 'qty', label: 'Qty', type: 'number', min: 0.01, max: 99999, decimals: 2 }" :model-value="item.qty" @update:model-value="item.qty = $event" />
-                <AppField :field="{ name: 'price', label: 'Unit price (RM)', type: 'number', min: 0, max: 99999, decimals: 2, mono: true }" :model-value="item.unit_price" @update:model-value="item.unit_price = $event" />
+                <AppField :field="{ name: 'qty', label: t('invf.qty'), type: 'number', min: 0.01, max: 99999, decimals: 2 }" :model-value="item.qty" @update:model-value="item.qty = $event" />
+                <AppField :field="{ name: 'price', label: t('invf.unitPrice'), type: 'number', min: 0, max: 99999, decimals: 2, mono: true }" :model-value="item.unit_price" @update:model-value="item.unit_price = $event" />
               </div>
             </div>
           </div>
@@ -483,12 +484,12 @@ const METHOD_ICONS: Record<string, string> = {
           <!-- Totals -->
           <div class="mt-4 pt-4 border-t border-(--ui-border) space-y-1.5 text-sm">
             <div class="flex justify-between">
-              <span class="text-(--ui-text-muted)">Subtotal</span>
+              <span class="text-(--ui-text-muted)">{{ t('invf.subtotal') }}</span>
               <span class="text-(--ui-text-highlighted)">RM {{ subtotal.toFixed(2) }}</span>
             </div>
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2">
-                <span class="text-(--ui-text-muted)">Tax (%)</span>
+                <span class="text-(--ui-text-muted)">{{ t('invf.tax') }}</span>
                 <UInput
                   :value="taxRate"
                   type="number" min="0" max="100" step="0.1" placeholder="6"
@@ -501,7 +502,7 @@ const METHOD_ICONS: Record<string, string> = {
             </div>
             <div class="flex items-center justify-between gap-2">
               <div class="flex items-center gap-2">
-                <span class="text-(--ui-text-muted)">Discount (RM)</span>
+                <span class="text-(--ui-text-muted)">{{ t('invf.discount') }}</span>
                 <UInput
                   :value="discount"
                   type="number" min="0" max="99999" step="0.01" placeholder="0.00"
@@ -515,7 +516,7 @@ const METHOD_ICONS: Record<string, string> = {
               </span>
             </div>
             <div class="flex justify-between font-semibold pt-1 border-t border-(--ui-border)">
-              <span class="text-(--ui-text-highlighted)">Total</span>
+              <span class="text-(--ui-text-highlighted)">{{ t('invf.total') }}</span>
               <span class="text-teal-500 text-base">RM {{ total.toFixed(2) }}</span>
             </div>
           </div>
@@ -524,11 +525,11 @@ const METHOD_ICONS: Record<string, string> = {
         <!-- Notes -->
         <UCard>
           <template #header>
-            <p class="font-semibold text-(--ui-text-highlighted)">Notes &amp; terms</p>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('invf.notesTerms') }}</p>
           </template>
           <UTextarea
             v-model="notes"
-            placeholder="Payment instructions, bank details, or any notes for the customer…"
+            :placeholder="t('invf.notesHint')"
             :rows="4"
             class="w-full"
           />
@@ -538,9 +539,9 @@ const METHOD_ICONS: Record<string, string> = {
         <UCard v-if="!isNew && payments?.length">
           <template #header>
             <div class="flex items-center justify-between">
-              <p class="font-semibold text-(--ui-text-highlighted)">Payments</p>
+              <p class="font-semibold text-(--ui-text-highlighted)">{{ t('invf.payments') }}</p>
               <span class="text-xs font-mono font-medium text-teal-500">
-                RM {{ totalPaid.toFixed(2) }} paid
+                RM {{ totalPaid.toFixed(2) }} {{ t('invf.paid') }}
               </span>
             </div>
           </template>
@@ -590,7 +591,7 @@ const METHOD_ICONS: Record<string, string> = {
       <div class="xl:sticky xl:top-6">
         <UCard>
           <template #header>
-            <p class="font-semibold text-(--ui-text-highlighted)">Preview</p>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('invf.preview') }}</p>
           </template>
           <InvoiceDoc v-bind="docProps" />
         </UCard>
@@ -602,12 +603,12 @@ const METHOD_ICONS: Record<string, string> = {
   <!-- ── Record Payment slideover ─────────────────────────────── -->
   <AppFormSlideover
     v-if="!isNew && id"
-    title="Record payment"
+    :title="t('invf.recordPayment')"
     :fields="PAYMENT_FIELDS"
     :model-value="paymentFormData"
     v-model:open="paymentModalOpen"
     :loading="savingPayment"
-    save-label="Confirm payment"
+    :save-label="t('invf.confirmPay')"
     @update:model-value="onPaymentFormUpdate"
     @save="savePayment"
   />

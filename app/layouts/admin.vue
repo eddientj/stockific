@@ -1,16 +1,36 @@
 <script setup lang="ts">
-const nav = [
-  { to: '/admin',           label: 'Dashboard', exact: true  },
-  { to: '/admin/products',  label: 'Products',  exact: false },
-  { to: '/admin/orders',    label: 'Orders',    exact: false },
-  { to: '/admin/customers', label: 'Customers', exact: false },
-  { to: '/admin/invoices',  label: 'Invoices',  exact: false },
-  { to: '/admin/reports',   label: 'Reports',   exact: false },
-  { to: '/admin/settings',  label: 'Settings',  exact: false },
-]
+const { locale, t, setLocale } = useLocale()
+
+const nav = computed(() => [
+  { to: '/admin',            label: t('nav.dashboard'),  exact: true  },
+  { to: '/admin/products',   label: t('nav.products'),   exact: false },
+  { to: '/admin/orders',     label: t('nav.orders'),     exact: false },
+  { to: '/admin/customers',  label: t('nav.customers'),  exact: false },
+  { to: '/admin/invoices',   label: t('nav.invoices'),   exact: false },
+  { to: '/admin/reports',    label: t('nav.reports'),    exact: false },
+  { to: '/admin/categories', label: t('nav.categories'), exact: false },
+])
+
+const settingsMenu = computed(() => [
+  [{ label: t('settings.business'), icon: 'i-lucide-building-2', to: '/admin/settings' }],
+])
+
+const langMenu = computed(() => [[
+  {
+    label: t('lang.en'),
+    icon:  locale.value === 'en' ? 'i-lucide-check' : 'i-lucide-languages',
+    onSelect() { setLocale('en') },
+  },
+  {
+    label: t('lang.ms'),
+    icon:  locale.value === 'ms' ? 'i-lucide-check' : 'i-lucide-languages',
+    onSelect() { setLocale('ms') },
+  },
+]])
 
 const colorMode = useColorMode()
-const isDark = computed(() => colorMode.value === 'dark')
+// Use preference (the stored value) so the toggle reflects correctly after reload
+const isDark = computed(() => colorMode.preference === 'dark')
 function toggleTheme() {
   colorMode.preference = isDark.value ? 'light' : 'dark'
 }
@@ -42,6 +62,21 @@ function toggleTheme() {
             {{ item.label }}
           </NuxtLink>
         </nav>
+
+        <!-- Language switcher -->
+        <UDropdownMenu :items="langMenu">
+          <UButton
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            class="font-semibold text-xs px-2 min-w-0"
+          >{{ locale === 'ms' ? 'MY' : 'EN' }}</UButton>
+        </UDropdownMenu>
+
+        <!-- Settings dropdown -->
+        <UDropdownMenu :items="settingsMenu">
+          <UButton icon="i-lucide-settings" variant="ghost" color="neutral" size="sm" />
+        </UDropdownMenu>
 
         <!-- Theme toggle -->
         <button
