@@ -1,12 +1,13 @@
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const supabase = useSupabaseAdmin()
-  const body     = await readBody(event)
+  const body = await readBody(event)
 
-  // Insert order (order_number set by DB trigger)
   const { data: order, error } = await supabase
     .from('orders')
     .insert({
-      order_number:      '',          // trigger overwrites this
+      order_number:      '',
+      org_id:            orgId,
       customer_id:       body.customer_id       ?? null,
       customer_name:     body.customer_name     ?? 'Unknown',
       customer_email:    body.customer_email    ?? null,
@@ -23,10 +24,10 @@ export default defineEventHandler(async (event) => {
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
 
-  // Insert items
   if (Array.isArray(body.items) && body.items.length > 0) {
     const items = body.items.map((i: any) => ({
       order_id:   order.id,
+      org_id:     orgId,
       name:       String(i.name    ?? '').trim() || 'Item',
       variant:    String(i.variant ?? '').trim() || null,
       qty:        Math.max(1, Number(i.qty)   || 1),
@@ -38,7 +39,6 @@ export default defineEventHandler(async (event) => {
     if (iErr) throw createError({ statusCode: 500, statusMessage: iErr.message })
   }
 
-  // Return full order with items + product stock info for frontend warnings
   const { data: full, error: fErr } = await supabase
     .from('orders')
     .select('*, order_items(*, product:products(id, name, is_active, variants(stock_quantity, stock_on_hold)))')

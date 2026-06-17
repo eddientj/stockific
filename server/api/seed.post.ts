@@ -3,7 +3,9 @@
  * Seeds the database with 100 mock products for development/testing.
  * Only works in non-production environments.
  */
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
+
   if (process.env.NODE_ENV === 'production')
     throw createError({ statusCode: 403, statusMessage: 'Seeding not allowed in production' })
 
@@ -17,7 +19,7 @@ export default defineEventHandler(async () => {
 
   const { data: cats, error: catErr } = await supabase
     .from('categories')
-    .upsert(categoryNames.map(name => ({ name })), { onConflict: 'name', ignoreDuplicates: false })
+    .upsert(categoryNames.map(name => ({ name, org_id: orgId })), { onConflict: 'name,org_id', ignoreDuplicates: false })
     .select('id, name')
 
   if (catErr) throw createError({ statusCode: 500, statusMessage: catErr.message })
@@ -144,9 +146,14 @@ export default defineEventHandler(async () => {
     { name: 'Grading Submission Kit',                category: 'Accessories', price: 49.90,  is_active: true,  stock: 25,  on_hold: 0,  description: 'PSA/CGC submission starter kit with top loaders.' },
   ]
 
-  // ── 3. Delete existing products + variants ────────────────
-  await supabase.from('variants').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  await supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  // ── 3. Delete existing products + variants (org-scoped) ──────
+  const { data: existingProducts } = await supabase
+    .from('products').select('id').eq('org_id', orgId)
+  if (existingProducts?.length) {
+    const ids = existingProducts.map(p => p.id)
+    await supabase.from('variants').delete().in('product_id', ids)
+  }
+  await supabase.from('products').delete().eq('org_id', orgId)
 
   // ── 4. Insert products ────────────────────────────────────
   const productRows = products.map(p => ({
@@ -156,6 +163,7 @@ export default defineEventHandler(async () => {
     is_active:   p.is_active,
     category_id: catMap[p.category] ?? null,
     image_url:   null,
+    org_id:      orgId,
   }))
 
   const { data: insertedProducts, error: prodErr } = await supabase

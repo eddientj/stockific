@@ -122,7 +122,7 @@ onUnmounted(() => clearInterval(timer))
         class="h-1.5 rounded-full transition-all duration-300 cursor-pointer"
         :style="{
           width: current === i ? '24px' : '6px',
-          background: current === i ? '#008080' : 'rgba(255,255,255,0.2)',
+          background: current === i ? '#818CF8' : 'rgba(255,255,255,0.2)',
         }"
         @click="goTo(i)"
       />

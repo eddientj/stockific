@@ -1,6 +1,7 @@
 import type { CustomerPayload } from '~~/app/types'
 
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const id   = getRouterParam(event, 'id')!
   const body = await readJsonBody<Partial<CustomerPayload>>(event)
 
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
     .from('customers')
     .update(patch)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select()
     .single()
 

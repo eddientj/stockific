@@ -1,9 +1,10 @@
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const supabase = useSupabaseAdmin()
 
   const [{ data: cats, error }, { data: prods }] = await Promise.all([
-    supabase.from('categories').select('id, name').order('name'),
-    supabase.from('products').select('category_id').not('category_id', 'is', null),
+    supabase.from('categories').select('id, name').eq('org_id', orgId).order('name'),
+    supabase.from('products').select('category_id').eq('org_id', orgId).not('category_id', 'is', null),
   ])
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })

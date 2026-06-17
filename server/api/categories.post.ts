@@ -1,11 +1,12 @@
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const { name } = await readBody(event)
   if (!name?.trim()) throw createError({ statusCode: 400, statusMessage: 'Name is required' })
 
   const supabase = useSupabaseAdmin()
   const { data, error } = await supabase
     .from('categories')
-    .insert({ name: name.trim() })
+    .insert({ name: name.trim(), org_id: orgId })
     .select('id, name')
     .single()
 

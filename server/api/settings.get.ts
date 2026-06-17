@@ -1,9 +1,10 @@
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const supabase = useSupabaseAdmin()
   const { data, error } = await supabase
     .from('business_settings')
     .select('*')
-    .eq('id', 1)
+    .eq('org_id', orgId)
     .single()
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
   return data

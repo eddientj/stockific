@@ -1,9 +1,9 @@
 import type { InvoicePayload } from '~~/app/types'
 
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const id   = getRouterParam(event, 'id')!
   const body = await readJsonBody<Partial<InvoicePayload>>(event)
-
   const supabase = useSupabaseAdmin()
 
   const patch: Record<string, unknown> = {}
@@ -17,12 +17,12 @@ export default defineEventHandler(async (event) => {
   if (body.notes         !== undefined) patch.notes         = optionalString(body as any, 'notes', 5000)
   if (body.payment_terms !== undefined) patch.payment_terms = optionalString(body as any, 'payment_terms', 500)
 
-  // Re-compute totals if items supplied
   if (Array.isArray(body.items)) {
     await supabase.from('invoice_items').delete().eq('invoice_id', id)
 
     const items = body.items.map(i => ({
       invoice_id:  id,
+      org_id:      orgId,
       description: String(i.description ?? '').trim() || 'Item',
       qty:         Math.max(0, Number(i.qty) || 0),
       unit_price:  Math.max(0, Number(i.unit_price) || 0),
@@ -34,18 +34,18 @@ export default defineEventHandler(async (event) => {
       if (iErr) throw createError({ statusCode: 500, statusMessage: iErr.message })
     }
 
-    const subtotal    = items.reduce((s, i) => s + i.subtotal, 0)
-    const taxRate     = typeof body.tax_rate === 'number' ? body.tax_rate : 6
-    const discount    = typeof body.discount === 'number' ? body.discount : 0
-    const taxAmt      = Math.round(subtotal * (taxRate / 100) * 100) / 100
-    patch.subtotal    = subtotal
-    patch.total       = Math.round((subtotal + taxAmt - discount) * 100) / 100
+    const subtotal = items.reduce((s, i) => s + i.subtotal, 0)
+    const taxRate  = typeof body.tax_rate === 'number' ? body.tax_rate : 6
+    const discount = typeof body.discount === 'number' ? body.discount : 0
+    patch.subtotal = subtotal
+    patch.total    = Math.round((subtotal + Math.round(subtotal * (taxRate / 100) * 100) / 100 - discount) * 100) / 100
   }
 
   const { data, error } = await supabase
     .from('invoices')
     .update(patch)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select('*, customers(name, email), invoice_items(*)')
     .single()
 

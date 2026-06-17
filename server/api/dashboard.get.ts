@@ -1,14 +1,15 @@
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const supabase = useSupabaseAdmin()
 
   const now = new Date()
   const d30 = new Date(now.getTime() - 30 * 86400000).toISOString()
   const d60 = new Date(now.getTime() - 60 * 86400000).toISOString()
 
-  // All orders with items (no product join needed here — just qty/price)
   const { data: allOrders } = await supabase
     .from('orders')
     .select('id, order_number, customer_name, status, shipping, created_at, order_items(qty, price)')
+    .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 
   type RawOrder = typeof allOrders extends (infer T)[] | null ? T : never
@@ -18,23 +19,19 @@ export default defineEventHandler(async () => {
     _total: ((o as any).order_items ?? []).reduce((s: number, i: any) => s + i.qty * i.price, 0) + ((o as any).shipping ?? 0),
   }))
 
-  // Status counts
   const statusCounts: Record<string, number> = { Pending: 0, Confirmed: 0, Shipped: 0, Delivered: 0, Cancelled: 0 }
   for (const o of withTotal) {
     if (o.status in statusCounts) statusCounts[o.status]++
   }
 
-  // Current + prev 30d (non-cancelled)
-  const current30 = withTotal.filter(o => o.status !== 'Cancelled' && o.created_at >= d30)
-  const prev30    = withTotal.filter(o => o.status !== 'Cancelled' && o.created_at >= d60 && o.created_at < d30)
-
+  const current30    = withTotal.filter(o => o.status !== 'Cancelled' && o.created_at >= d30)
+  const prev30       = withTotal.filter(o => o.status !== 'Cancelled' && o.created_at >= d60 && o.created_at < d30)
   const currentRevenue = current30.reduce((s, o) => s + o._total, 0)
   const prevRevenue    = prev30.reduce((s, o) => s + o._total, 0)
   const revenueChange  = prevRevenue > 0
     ? +((((currentRevenue - prevRevenue) / prevRevenue) * 100).toFixed(1))
     : 100
 
-  // Build 30-day daily revenue map (last 30 days including today)
   const dailyMap = new Map<string, number>()
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now)
@@ -47,12 +44,10 @@ export default defineEventHandler(async () => {
   }
   const revenueChart = Array.from(dailyMap.entries()).map(([date, revenue]) => ({ date, revenue }))
 
-  // Total revenue all-time (non-cancelled)
   const totalRevenue = withTotal
     .filter(o => o.status !== 'Cancelled')
     .reduce((s, o) => s + o._total, 0)
 
-  // Recent orders (last 6)
   const recentOrders = withTotal.slice(0, 6).map(o => ({
     id:            o.id,
     order_number:  o.order_number,

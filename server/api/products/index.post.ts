@@ -1,6 +1,7 @@
 import type { ProductPayload } from '~~/app/types'
 
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const body = await readJsonBody<ProductPayload>(event)
 
   const name        = requireString(body as any, 'name', 200)
@@ -11,20 +12,19 @@ export default defineEventHandler(async (event) => {
   const is_active   = body.is_active === false ? false : true
 
   const rawVariants = Array.isArray(body.variants) ? body.variants : []
-  const variants = rawVariants.map((v, i) => {
-    const name = (typeof v.name === 'string' && v.name.trim()) ? v.name.trim() : 'Default'
-    const stock_quantity = Math.max(0, Math.floor(Number(v.stock_quantity) || 0))
-    const stock_on_hold  = Math.max(0, Math.floor(Number(v.stock_on_hold)  || 0))
-    const sku            = (typeof v.sku === 'string' && v.sku.trim()) ? v.sku.trim() : null
-    const price_override = v.price_override != null ? Number(v.price_override) || null : null
-    return { name, sku, stock_quantity, stock_on_hold, price_override }
-  })
+  const variants = rawVariants.map(v => ({
+    name:           (typeof v.name === 'string' && v.name.trim()) ? v.name.trim() : 'Default',
+    sku:            (typeof v.sku === 'string' && v.sku.trim()) ? v.sku.trim() : null,
+    stock_quantity: Math.max(0, Math.floor(Number(v.stock_quantity) || 0)),
+    stock_on_hold:  Math.max(0, Math.floor(Number(v.stock_on_hold) || 0)),
+    price_override: v.price_override != null ? Number(v.price_override) || null : null,
+  }))
 
   const supabase = useSupabaseAdmin()
 
   const { data: product, error } = await supabase
     .from('products')
-    .insert({ name, description, price, image_url, category_id, is_active })
+    .insert({ name, description, price, image_url, category_id, is_active, org_id: orgId })
     .select()
     .single()
 
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
   if (variants.length > 0) {
     const { error: vError } = await supabase
       .from('variants')
-      .insert(variants.map(v => ({ ...v, product_id: product.id })))
+      .insert(variants.map(v => ({ ...v, product_id: product.id, org_id: orgId })))
     if (vError) throw createError({ statusCode: 500, statusMessage: vError.message })
   }
 

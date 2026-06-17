@@ -6,6 +6,21 @@ definePageMeta({ layout: 'admin' })
 
 const { t } = useLocale()
 const { settings, saving, save } = useSettings()
+const toast = useAppToast()
+
+const isDev = import.meta.dev
+const seeding = ref(false)
+async function seedDemoData() {
+  seeding.value = true
+  try {
+    await $fetch('/api/seed', { method: 'POST' })
+    toast.success('Demo data seeded')
+  } catch (e: any) {
+    toast.error(e.data?.message ?? 'Seed failed')
+  } finally {
+    seeding.value = false
+  }
+}
 
 const PAY_TERMS = ['Due on receipt', '7 days', '14 days', '30 days', '60 days', '90 days']
 
@@ -55,7 +70,7 @@ const form = reactive<Record<string, any>>({
   postcode:              '',
   country:               '',
   logo_url:              '',
-  accent_color:          '#008080',
+  accent_color:          '#6366F1',
   invoice_prefix:        'INV',
   default_tax_rate:      6,
   default_payment_terms: '30 days',
@@ -79,7 +94,7 @@ watch(settings, (s) => {
     postcode:              s.postcode              ?? '',
     country:               s.country               ?? '',
     logo_url:              s.logo_url              ?? '',
-    accent_color:          s.accent_color          ?? '#008080',
+    accent_color:          s.accent_color          ?? '#6366F1',
     invoice_prefix:        s.invoice_prefix        ?? 'INV',
     default_tax_rate:      s.default_tax_rate      ?? 6,
     default_payment_terms: s.default_payment_terms ?? '30 days',
@@ -107,7 +122,7 @@ async function handleSave() {
     postcode:              form.postcode              || null,
     country:               form.country               || 'Malaysia',
     logo_url:              form.logo_url              || null,
-    accent_color:          form.accent_color          || '#008080',
+    accent_color:          form.accent_color          || '#6366F1',
     invoice_prefix:        form.invoice_prefix        || 'INV',
     default_tax_rate:      form.default_tax_rate,
     default_payment_terms: form.default_payment_terms || '30 days',
@@ -171,6 +186,20 @@ async function handleSave() {
 
       <!-- Right column (1/3) -->
       <div class="space-y-6">
+
+        <!-- Dev-only seed card -->
+        <UCard v-if="isDev">
+          <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-database" class="size-4 text-(--ui-text-muted)" />
+              <span class="font-medium text-(--ui-text-highlighted)">Developer</span>
+            </div>
+          </template>
+          <p class="text-sm text-(--ui-text-muted) mb-3">Wipe and reseed all products and categories with demo data for this organisation.</p>
+          <UButton color="neutral" variant="outline" icon="i-lucide-refresh-cw" :loading="seeding" @click="seedDemoData">
+            Seed demo data
+          </UButton>
+        </UCard>
 
         <UCard>
           <template #header>

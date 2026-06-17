@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * Reusable status filter chip bar.
  * Used by Orders, Invoices, and any future list page with status filtering.
@@ -10,7 +10,7 @@ export type StatusChip = {
   key: string
   label?: string   // falls back to key if omitted
   count: number
-  color: string    // full Tailwind text class, e.g. 'text-teal-600 dark:text-teal-400'
+  color: string    // full Tailwind text class, e.g. 'text-indigo-600 dark:text-indigo-400'
   bg: string       // full Tailwind bg + border classes
 }
 

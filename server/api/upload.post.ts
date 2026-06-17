@@ -1,6 +1,7 @@
 const BUCKET = 'product-images'
 
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const formData = await readMultipartFormData(event)
   const file = formData?.find(f => f.name === 'file')
 
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const ext      = (file.filename ?? 'image').split('.').pop()?.toLowerCase() ?? 'jpg'
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const filename = `${orgId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
   const supabase = useSupabaseAdmin()
 

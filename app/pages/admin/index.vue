@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import type { ProductRow } from '~/types'
 
 definePageMeta({ layout: 'admin' })
@@ -42,13 +42,13 @@ const totalRevenue  = computed(() => dash.value?.currentRevenue ?? 0)
 const revenueChange = computed(() => dash.value?.revenueChange  ?? 0)
 
 const ORDER_STATUS_CFG: Record<string, { bg: string }> = {
-  Delivered: { bg: 'bg-teal-500'   },
+  Delivered: { bg: 'bg-indigo-500'   },
   Shipped:   { bg: 'bg-sky-500'    },
   Confirmed: { bg: 'bg-violet-500' },
   Pending:   { bg: 'bg-amber-500'  },
 }
 const ORDER_STATUS_DOT: Record<string, string> = {
-  Delivered: 'bg-teal-400',
+  Delivered: 'bg-indigo-400',
   Shipped:   'bg-sky-400',
   Confirmed: 'bg-violet-400',
   Pending:   'bg-amber-400',
@@ -130,8 +130,8 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
       <!-- Revenue -->
       <UCard class="stat-card">
         <div class="flex items-start justify-between mb-3">
-          <div class="w-9 h-9 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-            <UIcon name="i-lucide-circle-dollar-sign" class="size-4 text-teal-500" />
+          <div class="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+            <UIcon name="i-lucide-circle-dollar-sign" class="size-4 text-indigo-500" />
           </div>
           <span class="text-xs font-medium text-emerald-500 flex items-center gap-0.5">
             <UIcon name="i-lucide-trending-up" class="size-3" />
@@ -201,7 +201,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
               <p class="text-xs text-(--ui-text-muted)">{{ t('dash.dailyRevenue') }}</p>
             </div>
             <div class="text-right">
-              <p class="text-lg font-bold text-teal-500">{{ rm(totalRevenue) }}</p>
+              <p class="text-lg font-bold text-indigo-500">{{ rm(totalRevenue) }}</p>
 
               <p class="text-xs" :class="revenueChange >= 0 ? 'text-emerald-500' : 'text-red-400'">
               {{ t('dash.vsPrev') }}
@@ -218,8 +218,8 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
           >
             <defs>
               <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stop-color="#008080" stop-opacity="0.25" />
-                <stop offset="100%" stop-color="#008080" stop-opacity="0"    />
+                <stop offset="0%"   stop-color="#6366F1" stop-opacity="0.25" />
+                <stop offset="100%" stop-color="#6366F1" stop-opacity="0"    />
               </linearGradient>
             </defs>
             <!-- Horizontal grid lines -->
@@ -228,7 +228,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
             <!-- Fill -->
             <path :d="fillPath || ''" fill="url(#revGrad)" />
             <!-- Line -->
-            <polyline :points="polyline || ''" fill="none" stroke="#008080" stroke-width="2"
+            <polyline :points="polyline || ''" fill="none" stroke="#6366F1" stroke-width="2"
               stroke-linejoin="round" stroke-linecap="round" />
           </svg>
 
@@ -288,7 +288,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
 
         <NuxtLink
           to="/admin/orders"
-          class="block mt-5 text-center text-xs text-(--ui-text-muted) hover:text-teal-500 transition-colors"
+          class="block mt-5 text-center text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors"
         >
           {{ t('dash.viewAllOrders') }}
         </NuxtLink>
@@ -306,7 +306,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
               <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.recentOrders') }}</p>
               <p class="text-xs text-(--ui-text-muted)">{{ t('dash.latestActivity') }}</p>
             </div>
-            <NuxtLink to="/admin/orders" class="text-xs text-(--ui-text-muted) hover:text-teal-500 transition-colors">
+            <NuxtLink to="/admin/orders" class="text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors">
               {{ t('dash.viewAll') }}
             </NuxtLink>
           </div>
@@ -344,7 +344,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
               <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.lowStockTitle') }}</p>
               <p class="text-xs text-(--ui-text-muted)">{{ t('dash.needsRestock') }}</p>
             </div>
-            <NuxtLink to="/admin/products" class="text-xs text-(--ui-text-muted) hover:text-teal-500 transition-colors">
+            <NuxtLink to="/admin/products" class="text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors">
               {{ t('dash.viewAll') }}
             </NuxtLink>
           </div>

@@ -1,4 +1,5 @@
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing product id' })
 
@@ -7,6 +8,7 @@ export default defineEventHandler(async (event) => {
     .from('products')
     .select('*, categories(id, name), variants(id, name, sku, stock_quantity, price_override)')
     .eq('id', id)
+    .eq('org_id', orgId)
     .single()
 
   if (error) {

@@ -1,6 +1,7 @@
 import type { ProductPayload } from '~~/app/types'
 
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing product id' })
 
@@ -21,6 +22,7 @@ export default defineEventHandler(async (event) => {
       .from('products')
       .update(update)
       .eq('id', id)
+      .eq('org_id', orgId)
       .select()
       .single()
 
@@ -30,21 +32,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Replace all variants — delete then re-insert.
-  // This avoids id conflicts when the product previously had no variants.
   if (Array.isArray(body.variants) && body.variants.length > 0) {
-    const { error: delErr } = await supabase
-      .from('variants')
-      .delete()
-      .eq('product_id', id)
+    const { error: delErr } = await supabase.from('variants').delete().eq('product_id', id)
     if (delErr) throw createError({ statusCode: 500, statusMessage: delErr.message })
 
     const rows = body.variants.map(v => ({
       product_id:     id,
+      org_id:         orgId,
       name:           (typeof v.name === 'string' && v.name.trim()) ? v.name.trim() : 'Default',
       sku:            (typeof v.sku === 'string' && v.sku.trim()) ? v.sku.trim() : null,
       stock_quantity: Math.max(0, Math.min(99999, Math.floor(Number(v.stock_quantity) || 0))),
-      stock_on_hold:  Math.max(0, Math.min(99999, Math.floor(Number(v.stock_on_hold)  || 0))),
+      stock_on_hold:  Math.max(0, Math.min(99999, Math.floor(Number(v.stock_on_hold) || 0))),
       price_override: v.price_override != null ? Number(v.price_override) || null : null,
     }))
 

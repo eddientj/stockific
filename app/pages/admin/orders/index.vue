@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { useOrders, ORDER_STATUS_CFG, buildOrderTimeline, orderItemWarning } from '~/composables/useOrders'
 import type { Order, OrderStatus } from '~/composables/useOrders'
 import type { CustomerRow, ProductRow } from '~/types'
@@ -392,7 +392,7 @@ async function submitOrder() {
                     <div
                       class="w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors"
                       :class="step.done
-                        ? (selected.status === 'Cancelled' && i === 1 ? 'bg-red-500 border-red-500' : 'bg-teal-500 border-teal-500')
+                        ? (selected.status === 'Cancelled' && i === 1 ? 'bg-red-500 border-red-500' : 'bg-indigo-500 border-indigo-500')
                         : 'bg-(--ui-bg) border-(--ui-border)'"
                     >
                       <UIcon :name="step.icon" class="size-3.5" :class="step.done ? 'text-white' : 'text-(--ui-text-muted)'" />
@@ -404,7 +404,7 @@ async function submitOrder() {
                   <div
                     v-if="i < selectedTimeline.length - 1"
                     class="h-0.5 flex-1 mb-5 rounded-full"
-                    :class="selectedTimeline[i + 1]?.done ? 'bg-teal-500' : 'bg-(--ui-border)'"
+                    :class="selectedTimeline[i + 1]?.done ? 'bg-indigo-500' : 'bg-(--ui-border)'"
                   />
                 </template>
               </div>
@@ -469,13 +469,13 @@ async function submitOrder() {
               </div>
               <div class="flex justify-between px-4 py-2.5 text-sm">
                 <span class="text-(--ui-text-muted)">{{ t('ord.shipping') }}</span>
-                <span :class="selected.shipping === 0 ? 'text-teal-500 font-medium' : 'text-(--ui-text-highlighted)'">
+                <span :class="selected.shipping === 0 ? 'text-indigo-500 font-medium' : 'text-(--ui-text-highlighted)'">
                   {{ selected.shipping === 0 ? t('ord.free') : rm(selected.shipping) }}
                 </span>
               </div>
               <div class="flex justify-between px-4 py-3 font-semibold">
                 <span class="text-(--ui-text-highlighted)">{{ t('ord.total') }}</span>
-                <span class="text-teal-500">{{ rm(orderTotal(selected)) }}</span>
+                <span class="text-indigo-500">{{ rm(orderTotal(selected)) }}</span>
               </div>
             </div>
 
@@ -634,7 +634,7 @@ async function submitOrder() {
           </div>
           <div class="text-right">
             <p class="text-xs text-(--ui-text-muted)">{{ t('ord.total') }}</p>
-            <p class="font-mono font-bold text-lg text-teal-500">RM {{ createTotal.toFixed(2) }}</p>
+            <p class="font-mono font-bold text-lg text-indigo-500">RM {{ createTotal.toFixed(2) }}</p>
           </div>
         </div>
       </div>

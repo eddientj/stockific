@@ -1,6 +1,7 @@
 import type { CustomerPayload } from '~~/app/types'
 
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const body = await readJsonBody<CustomerPayload>(event)
 
   const name     = requireString(body as any, 'name', 200)
@@ -14,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const supabase = useSupabaseAdmin()
   const { data, error } = await supabase
     .from('customers')
-    .insert({ name, email, phone, address, city, postcode, notes })
+    .insert({ name, email, phone, address, city, postcode, notes, org_id: orgId })
     .select()
     .single()
 

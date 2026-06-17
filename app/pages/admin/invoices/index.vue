@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { useInvoices, INVOICE_STATUS_CFG, INVOICE_STATUSES } from '~/composables/useInvoices'
 import type { InvoiceStatus } from '~/types'
 
@@ -76,7 +76,7 @@ const statusChips = computed(() =>
         class="border-b border-(--ui-border) last:border-0 hover:bg-(--ui-bg-elevated) transition-colors"
       >
         <td class="px-4 py-3">
-          <NuxtLink :to="`/admin/invoices/${inv.id}`" class="font-mono text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline">
+          <NuxtLink :to="`/admin/invoices/${inv.id}`" class="font-mono text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
             {{ inv.invoice_number }}
           </NuxtLink>
         </td>

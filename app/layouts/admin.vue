@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { locale, t, setLocale } = useLocale()
+const { signOut, displayName } = useAuth()
 
 const nav = computed(() => [
   { to: '/admin',            label: t('nav.dashboard'),  exact: true  },
@@ -13,6 +14,7 @@ const nav = computed(() => [
 
 const settingsMenu = computed(() => [
   [{ label: t('settings.business'), icon: 'i-lucide-building-2', to: '/admin/settings' }],
+  [{ label: 'Sign out', icon: 'i-lucide-log-out', onSelect: signOut }],
 ])
 
 const langMenu = computed(() => [[
@@ -41,11 +43,11 @@ function toggleTheme() {
 
     <!-- ── Top header bar ─────────────────────────────── -->
     <header class="app-header border-b border-(--ui-border)">
-      <div class="max-w-7xl mx-auto px-6 h-14 flex items-center gap-6">
+      <div class="max-w-7xl mx-auto px-6 h-14 flex items-center gap-4">
 
         <!-- Wordmark -->
         <NuxtLink to="/" class="flex items-center gap-2.5 shrink-0 no-underline">
-          <span class="w-[3px] h-5 rounded-full block" style="background:#008080" />
+          <span class="w-[3px] h-5 rounded-full block" style="background:var(--color-brand-500)" />
           <span class="text-sm font-semibold tracking-tight text-(--ui-text-highlighted)">Stockific</span>
         </NuxtLink>
 
@@ -63,33 +65,42 @@ function toggleTheme() {
           </NuxtLink>
         </nav>
 
-        <!-- Language switcher -->
-        <UDropdownMenu :items="langMenu">
-          <UButton
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            class="font-semibold text-xs px-2 min-w-0"
-          >{{ locale === 'ms' ? 'MY' : 'EN' }}</UButton>
-        </UDropdownMenu>
+        <!-- Right-side controls -->
+        <div class="flex items-center gap-1">
 
-        <!-- Settings dropdown -->
-        <UDropdownMenu :items="settingsMenu">
-          <UButton icon="i-lucide-settings" variant="ghost" color="neutral" size="sm" />
-        </UDropdownMenu>
+          <!-- Display name → profile page (stub) -->
+          <NuxtLink
+            v-if="displayName"
+            to="/admin/profile"
+            class="text-sm font-medium px-2 py-1.5 rounded-md text-(--ui-text-muted) hover:text-(--ui-text-highlighted) hover:bg-(--ui-bg-elevated) transition-colors whitespace-nowrap no-underline"
+          >{{ displayName }}</NuxtLink>
 
-        <!-- Theme toggle -->
-        <button
-          class="theme-toggle"
-          :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-          @click="toggleTheme"
-        >
-          <span class="toggle-track" :class="{ active: isDark }">
-            <span class="toggle-thumb" :class="{ active: isDark }">
-              <UIcon :name="isDark ? 'i-lucide-moon' : 'i-lucide-sun'" class="size-3 icon" />
+          <!-- Language switcher -->
+          <UDropdownMenu :items="langMenu">
+            <UButton variant="ghost" color="neutral" size="sm" class="font-semibold text-xs px-2 min-w-0">
+              {{ locale === 'ms' ? 'MY' : 'EN' }}
+            </UButton>
+          </UDropdownMenu>
+
+          <!-- Settings + sign out dropdown -->
+          <UDropdownMenu :items="settingsMenu">
+            <UButton icon="i-lucide-settings" variant="ghost" color="neutral" size="sm" />
+          </UDropdownMenu>
+
+          <!-- Theme toggle -->
+          <button
+            class="theme-toggle"
+            :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+            @click="toggleTheme"
+          >
+            <span class="toggle-track" :class="{ active: isDark }">
+              <span class="toggle-thumb" :class="{ active: isDark }">
+                <UIcon :name="isDark ? 'i-lucide-moon' : 'i-lucide-sun'" class="size-3 icon" />
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+
+        </div><!-- end right-side controls -->
 
       </div>
     </header>
@@ -108,7 +119,7 @@ function toggleTheme() {
   background: var(--ui-bg);
 }
 .dark .app-header {
-  background: #0D1F1F;
+  background: #1E293B;
 }
 
 /* Nav links */
@@ -116,7 +127,7 @@ function toggleTheme() {
 .nav-link:hover  { color: var(--ui-text-highlighted); background: var(--ui-bg-elevated); }
 .nav-link.router-link-active {
   color: #FFFFFF;
-  background: #008080;
+  background: var(--color-brand-500);
 }
 
 /* Toggle */
@@ -141,8 +152,8 @@ function toggleTheme() {
   position: relative;
 }
 .toggle-track.active {
-  background: #008080;
-  border-color: #008080;
+  background: var(--color-brand-500);
+  border-color: var(--color-brand-500);
 }
 .toggle-thumb {
   width: 18px;
@@ -157,6 +168,6 @@ function toggleTheme() {
 .toggle-thumb.active {
   transform: translateX(20px);
 }
-.icon { color: #008080; }
-.toggle-track.active .icon { color: #9BB8B8; }
+.icon { color: var(--color-brand-500); }
+.toggle-track.active .icon { color: var(--color-brand-200); }
 </style>

@@ -7,18 +7,18 @@
    ───────────────────────────────────────────────────────────── */
 
 @theme static {
-  /* Brand teal */
-  --color-brand-50:  #E0F4F4;
-  --color-brand-100: #C2E8E8;
-  --color-brand-200: #99D0D0;
-  --color-brand-300: #5FBFBF;
-  --color-brand-400: #00A89A;  /* hover  */
-  --color-brand-500: #008080;  /* primary */
-  --color-brand-600: #006666;  /* active  */
-  --color-brand-700: #004D4D;
-  --color-brand-800: #003333;
-  --color-brand-900: #001F1F;
-  --color-brand-950: #0D1F1F;  /* header  */
+  /* Brand indigo — distinct from any AI-tool palette */
+  --color-brand-50:  #EEF2FF;
+  --color-brand-100: #E0E7FF;
+  --color-brand-200: #C7D2FE;
+  --color-brand-300: #A5B4FC;
+  --color-brand-400: #818CF8;  /* hover  */
+  --color-brand-500: #6366F1;  /* primary */
+  --color-brand-600: #4F46E5;  /* active  */
+  --color-brand-700: #4338CA;
+  --color-brand-800: #3730A3;
+  --color-brand-900: #312E81;
+  --color-brand-950: #1E1B4B;  /* dark header */
 
   /* Status — full scales so UBadge/UAlert render their tints correctly */
   --color-success-50:  #f0fdf4;
@@ -53,47 +53,44 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Override Nuxt UI semantic vars
-   These flow into every component that reads --ui-* vars.
+   Override Nuxt UI semantic vars — light mode
    ───────────────────────────────────────────────────────────── */
 :root {
-  /* --ui-bg is Nuxt UI's DEFAULT surface (cards, inputs).
-     Page background is set separately on body / layout wrappers. */
-  --ui-bg:               #FFFFFF;   /* card / surface            */
-  --ui-bg-muted:         #F5FAFA;   /* page background / muted   */
-  --ui-bg-elevated:      #EDF6F6;   /* hover tint for ghost buttons */
-  --ui-bg-accented:      #E0F4F4;   /* active/selected tint      */
-  --ui-bg-inverted:      #0D1F1F;   /* dark surfaces             */
+  --ui-bg:               #FFFFFF;
+  --ui-bg-muted:         #F8FAFC;   /* slate-50 — neutral, not tinted */
+  --ui-bg-elevated:      #F1F5F9;   /* slate-100 */
+  --ui-bg-accented:      #EEF2FF;   /* brand-50 tint */
+  --ui-bg-inverted:      #1E1B4B;   /* brand-950 */
 
-  --ui-border:           #E5EDED;
-  --ui-border-muted:     #E5EDED;
-  --ui-border-accented:  #008080;
+  --ui-border:           #E2E8F0;   /* slate-200 */
+  --ui-border-muted:     #E2E8F0;
+  --ui-border-accented:  #6366F1;   /* brand-500 */
 
-  --ui-text:             #0D1F1F;
-  --ui-text-muted:       #666666;
-  --ui-text-highlighted: #0D1F1F;
-  --ui-text-toned:       #008080;
+  --ui-text:             #0F172A;   /* slate-900 */
+  --ui-text-muted:       #64748B;   /* slate-500 */
+  --ui-text-highlighted: #0F172A;
+  --ui-text-toned:       #6366F1;   /* brand-500 */
   --ui-text-inverted:    #FFFFFF;
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Dark mode overrides
+   Dark mode — deep navy, not teal
    ───────────────────────────────────────────────────────────── */
 .dark {
-  --ui-bg:               #162828;
-  --ui-bg-muted:         #0D1F1F;
-  --ui-bg-elevated:      #1E3333;
-  --ui-bg-inverted:      #E0F4F4;
+  --ui-bg:               #1E293B;   /* slate-800 */
+  --ui-bg-muted:         #0F172A;   /* slate-950 */
+  --ui-bg-elevated:      #263549;   /* slate-800 + brand hint */
+  --ui-bg-inverted:      #E0E7FF;   /* brand-100 */
 
-  --ui-border:           #2A4040;
-  --ui-border-muted:     #2A4040;
-  --ui-border-accented:  #008080;
+  --ui-border:           #334155;   /* slate-700 */
+  --ui-border-muted:     #334155;
+  --ui-border-accented:  #6366F1;
 
-  --ui-text:             #E0F4F4;
-  --ui-text-muted:       #9BB8B8;
-  --ui-text-highlighted: #FFFFFF;
-  --ui-text-toned:       #00A89A;
-  --ui-text-inverted:    #0D1F1F;
+  --ui-text:             #CBD5E1;   /* slate-300 */
+  --ui-text-muted:       #94A3B8;   /* slate-400 */
+  --ui-text-highlighted: #F1F5F9;   /* slate-100 */
+  --ui-text-toned:       #818CF8;   /* brand-400 */
+  --ui-text-inverted:    #0F172A;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -101,10 +98,10 @@
    ───────────────────────────────────────────────────────────── */
 html { font-family: var(--font-sans); }
 body {
-  background: #F5FAFA;
+  background: #F8FAFC;
   color: var(--ui-text);
 }
 .dark body,
 .dark {
-  background: #0D1F1F;
+  background: #0F172A;
 }

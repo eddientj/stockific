@@ -1,15 +1,27 @@
 import type { InvoicePayload } from '~~/app/types'
 
 export default defineEventHandler(async (event) => {
+  const { orgId } = await requireAuth(event)
   const body = await readJsonBody<InvoicePayload>(event)
-
   const supabase = useSupabaseAdmin()
 
-  // Generate next invoice number: INV-YYYY-XXXX
-  const year = new Date().getFullYear()
-  const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true })
-  const seq = String((count ?? 0) + 1).padStart(4, '0')
-  const invoice_number = `INV-${year}-${seq}`
+  // Per-org invoice number using atomic counter in business_settings
+  const { data: settings, error: sErr } = await supabase
+    .from('business_settings')
+    .select('next_invoice_number, invoice_prefix')
+    .eq('org_id', orgId)
+    .single()
+  if (sErr) throw createError({ statusCode: 500, statusMessage: 'Could not load settings' })
+
+  const year   = new Date().getFullYear()
+  const seq    = String(settings.next_invoice_number ?? 1).padStart(4, '0')
+  const prefix = settings.invoice_prefix ?? 'INV'
+  const invoice_number = `${prefix}-${year}-${seq}`
+
+  await supabase
+    .from('business_settings')
+    .update({ next_invoice_number: (settings.next_invoice_number ?? 1) + 1 })
+    .eq('org_id', orgId)
 
   const customer_id   = optionalUuid(body as any, 'customer_id')
   const customer_name = optionalString(body as any, 'customer_name', 200)
@@ -36,7 +48,7 @@ export default defineEventHandler(async (event) => {
   const { data: inv, error } = await supabase
     .from('invoices')
     .insert({ invoice_number, customer_id, customer_name, issue_date, due_date,
-              status, subtotal, tax_rate, discount, total, notes, payment_terms })
+              status, subtotal, tax_rate, discount, total, notes, payment_terms, org_id: orgId })
     .select()
     .single()
 
@@ -45,7 +57,7 @@ export default defineEventHandler(async (event) => {
   if (items.length > 0) {
     const { error: iErr } = await supabase
       .from('invoice_items')
-      .insert(items.map(i => ({ ...i, invoice_id: inv.id })))
+      .insert(items.map(i => ({ ...i, invoice_id: inv.id, org_id: orgId })))
     if (iErr) throw createError({ statusCode: 500, statusMessage: iErr.message })
   }
 
