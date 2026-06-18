@@ -6,7 +6,7 @@ definePageMeta({ layout: 'admin' })
 const { t } = useLocale()
 
 // ── Live data ─────────────────────────────────────────────
-const [{ data: products }, { data: dash }] = await Promise.all([
+const [{ data: products }, { data: dash }, { data: crm }] = await Promise.all([
   useFetch<ProductRow[]>('/api/products'),
   useFetch<{
     totalOrders: number
@@ -17,6 +17,13 @@ const [{ data: products }, { data: dash }] = await Promise.all([
     revenueChart: { date: string; revenue: number }[]
     recentOrders: { id: string; order_number: string; customer_name: string; status: string; total: number; item_count: number; created_at: string }[]
   }>('/api/dashboard'),
+  useFetch<{
+    pipeline: { id: string; name: string; color: string; is_closed_won: boolean; is_closed_lost: boolean; count: number; value: number }[]
+    unassigned: number
+    totalLeads: number
+    totalValue: number
+    followUps: { id: string; name: string; stage: { name: string; color: string } | null; value: number | null; created_at: string; daysIdle: number }[]
+  }>('/api/dashboard/crm'),
 ])
 
 // ── Inventory from products ───────────────────────────────
@@ -106,6 +113,13 @@ const fillPath = computed(() => {
   const last  = pts[pts.length - 1]!
   return `M${first.x},${SVG_H} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${last.x},${SVG_H} Z`
 })
+
+// ── CRM ───────────────────────────────────────────────────
+const pipeline     = computed(() => crm.value?.pipeline   ?? [])
+const followUps    = computed(() => crm.value?.followUps  ?? [])
+const totalLeads   = computed(() => crm.value?.totalLeads ?? 0)
+const totalValue   = computed(() => crm.value?.totalValue ?? 0)
+const maxStageCount = computed(() => Math.max(...pipeline.value.map(s => s.count), 1))
 
 // ── Helpers ───────────────────────────────────────────────
 const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`
@@ -293,6 +307,110 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
           {{ t('dash.viewAllOrders') }}
         </NuxtLink>
       </UCard>
+    </div>
+
+    <!-- ── CRM row ──────────────────────────────────────────── -->
+    <div class="grid lg:grid-cols-3 gap-4">
+
+      <!-- Pipeline overview -->
+      <UCard class="lg:col-span-2">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-semibold text-(--ui-text-highlighted)">Pipeline Overview</p>
+              <p class="text-xs text-(--ui-text-muted)">Open leads by stage</p>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold text-(--ui-text-highlighted)">{{ totalLeads }} leads</p>
+              <p class="text-xs text-(--ui-text-muted)">{{ rmK(totalValue) }} total value</p>
+            </div>
+          </div>
+        </template>
+
+        <div v-if="pipeline.length === 0" class="py-8 text-center text-sm text-(--ui-text-muted)">
+          No pipeline stages yet.
+          <NuxtLink to="/admin/leads/pipeline" class="text-indigo-500 hover:underline ml-1">Set up stages →</NuxtLink>
+        </div>
+
+        <div v-else class="space-y-3">
+          <div v-for="stage in pipeline" :key="stage.id" class="flex items-center gap-3">
+            <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: stage.color }" />
+            <span class="text-sm text-(--ui-text-muted) w-28 truncate shrink-0">{{ stage.name }}</span>
+            <div class="flex-1 h-2 rounded-full bg-(--ui-bg-elevated) overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all"
+                :style="{ width: `${(stage.count / maxStageCount) * 100}%`, background: stage.color }"
+              />
+            </div>
+            <span class="text-sm font-semibold text-(--ui-text-highlighted) w-6 text-right tabular-nums shrink-0">{{ stage.count }}</span>
+            <span class="text-xs text-(--ui-text-muted) w-20 text-right tabular-nums shrink-0">
+              {{ stage.value > 0 ? rmK(stage.value) : '—' }}
+            </span>
+          </div>
+
+          <div v-if="crm?.unassigned" class="flex items-center gap-3 opacity-50">
+            <div class="w-2.5 h-2.5 rounded-full shrink-0 bg-(--ui-text-muted)" />
+            <span class="text-sm text-(--ui-text-muted) w-28 shrink-0">Unassigned</span>
+            <div class="flex-1 h-2 rounded-full bg-(--ui-bg-elevated) overflow-hidden">
+              <div class="h-full rounded-full bg-(--ui-text-muted)"
+                :style="{ width: `${(crm.unassigned / maxStageCount) * 100}%` }" />
+            </div>
+            <span class="text-sm font-semibold text-(--ui-text-highlighted) w-6 text-right tabular-nums shrink-0">{{ crm.unassigned }}</span>
+            <span class="text-xs text-(--ui-text-muted) w-20 text-right shrink-0">—</span>
+          </div>
+        </div>
+
+        <NuxtLink to="/admin/leads/pipeline"
+          class="block mt-4 text-center text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors">
+          Open pipeline →
+        </NuxtLink>
+      </UCard>
+
+      <!-- Follow-ups -->
+      <UCard>
+        <template #header>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-semibold text-(--ui-text-highlighted)">Follow-ups Needed</p>
+              <p class="text-xs text-(--ui-text-muted)">No activity in 7+ days</p>
+            </div>
+            <UBadge v-if="followUps.length" color="warning" variant="subtle" size="xs">
+              {{ followUps.length }}
+            </UBadge>
+          </div>
+        </template>
+
+        <div v-if="followUps.length === 0" class="py-8 text-center text-sm text-(--ui-text-muted)">
+          All leads have recent activity ✓
+        </div>
+
+        <div v-else class="divide-y divide-(--ui-border)">
+          <NuxtLink
+            v-for="lead in followUps"
+            :key="lead.id"
+            :to="`/admin/leads/${lead.id}`"
+            class="flex items-center gap-3 py-2.5 hover:bg-(--ui-bg-elevated) -mx-4 px-4 transition-colors no-underline"
+          >
+            <div class="w-7 h-7 rounded-full bg-(--ui-bg-elevated) border border-(--ui-border) flex items-center justify-center shrink-0">
+              <UIcon name="i-lucide-user-plus" class="size-3.5 text-(--ui-text-muted)" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-(--ui-text-highlighted) truncate">{{ lead.name }}</p>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <span v-if="lead.stage" class="w-1.5 h-1.5 rounded-full shrink-0" :style="{ background: lead.stage.color }" />
+                <p class="text-xs text-(--ui-text-muted) truncate">{{ lead.stage?.name ?? 'No stage' }}</p>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-xs font-semibold" :class="lead.daysIdle >= 14 ? 'text-red-500' : 'text-amber-500'">
+                {{ lead.daysIdle }}d idle
+              </p>
+              <p v-if="lead.value" class="text-xs text-(--ui-text-muted)">{{ rmK(lead.value) }}</p>
+            </div>
+          </NuxtLink>
+        </div>
+      </UCard>
+
     </div>
 
     <!-- ── Tables row ─────────────────────────────────────── -->
