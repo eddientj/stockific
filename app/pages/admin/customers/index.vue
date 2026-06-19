@@ -216,20 +216,14 @@ function resetFilters() {
       export-filename="customers"
       :export-columns="exportColumns"
       :export-data="exportData"
+      empty-icon="i-lucide-users"
+      :empty-title="t('cus.noCustomers')"
+      :empty-hint="t('cus.noCustomersHint')"
       @create="openNew"
       @bulk-edit="openBulkEdit"
       @import="handleImport"
       @filter="filterSlideoverOpen = true"
     >
-      <template #empty>
-        <div class="flex flex-col items-center py-16 gap-3">
-          <UIcon name="i-lucide-users" class="size-10 text-(--ui-text-muted)" />
-          <p class="font-medium text-(--ui-text-highlighted)">{{ t('cus.noCustomers') }}</p>
-          <p class="text-sm text-(--ui-text-muted)">{{ t('cus.noCustomersHint') }}</p>
-          <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click="openNew">{{ t('cus.new') }}</UButton>
-        </div>
-      </template>
-
       <template #name-cell="{ row }">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-full bg-(--ui-bg-elevated) border border-(--ui-border) flex items-center justify-center shrink-0">

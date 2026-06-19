@@ -325,21 +325,15 @@ function handleImport(rows: Record<string, unknown>[]) {
       export-filename="products"
       :export-columns="exportColumns"
       :export-data="exportData"
+      empty-icon="i-lucide-package"
+      :empty-title="t('prod.empty')"
+      :empty-hint="t('prod.emptyHint')"
       @create="openNew"
       @filter="filterSlideoverOpen = true"
       @bulk-delete="bulkDelete"
       @bulk-edit="openBulkEdit"
       @import="handleImport"
     >
-      <template #empty>
-        <div class="flex flex-col items-center py-16 gap-3">
-          <UIcon name="i-lucide-package" class="size-10 text-(--ui-text-muted)" />
-          <p class="font-medium text-(--ui-text-highlighted)">{{ t('prod.empty') }}</p>
-          <p class="text-sm text-(--ui-text-muted)">{{ t('prod.emptyHint') }}</p>
-          <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click="openNew">{{ t('prod.new') }}</UButton>
-        </div>
-      </template>
-
       <template #name-cell="{ row }">
         <div class="flex items-center gap-3">
           <UAvatar

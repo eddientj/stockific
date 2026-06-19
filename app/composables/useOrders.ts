@@ -60,7 +60,7 @@ export const ORDER_STATUS_CFG: Record<OrderStatus, OrderStatusCfg> = {
   Pending:   { color: 'text-amber-600  dark:text-amber-400',  bg: 'bg-amber-50  dark:bg-amber-900/30  border-amber-200  dark:border-amber-800',  dot: 'bg-amber-500',  icon: 'i-lucide-clock'         },
   Confirmed: { color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800', dot: 'bg-violet-500', icon: 'i-lucide-check-circle'  },
   Shipped:   { color: 'text-sky-600    dark:text-sky-400',    bg: 'bg-sky-50    dark:bg-sky-900/30    border-sky-200    dark:border-sky-800',    dot: 'bg-sky-500',    icon: 'i-lucide-truck'         },
-  Delivered: { color: 'text-teal-600   dark:text-teal-400',   bg: 'bg-teal-50   dark:bg-teal-900/30   border-teal-200   dark:border-teal-800',   dot: 'bg-teal-500',   icon: 'i-lucide-package-check' },
+  Delivered: { color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800', dot: 'bg-emerald-500', icon: 'i-lucide-package-check' },
   Cancelled: { color: 'text-red-600    dark:text-red-400',    bg: 'bg-red-50    dark:bg-red-900/30    border-red-200    dark:border-red-800',    dot: 'bg-red-500',    icon: 'i-lucide-x-circle'      },
 }
 

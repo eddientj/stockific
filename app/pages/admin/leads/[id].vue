@@ -3,61 +3,33 @@ import type { LeadDetail, ActivityType } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
-const { t }    = useLocale()
-const toast    = useAppToast()
-const route    = useRoute()
-const router   = useRouter()
+const { t }  = useLocale()
+const toast  = useAppToast()
+const route  = useRoute()
+const router = useRouter()
 
 const id = route.params.id as string
 
 // ── Lead detail ───────────────────────────────────────────────
 const { data: lead, pending, refresh } = useFetch<LeadDetail>(`/api/crm/leads/${id}`)
 
-// ── Edit lead ─────────────────────────────────────────────────
-const { stages } = usePipelineStages()
-const { companies } = useCompanies()
+// ── Edit (shared schema via AppFormSlideover) ─────────────────
+const { fields, blankLead, leadToForm, formToPayload } = useLeadFormFields()
 
-const editOpen  = ref(false)
-const saving    = ref(false)
-const editForm  = ref({
-  name: '', email: '', phone: '', source: '', notes: '',
-  value: '' as string | number,
-  stage_id: null as string | null,
-  company_id: null as string | null,
-})
+const editOpen = ref(false)
+const saving   = ref(false)
+const form     = ref<Record<string, any>>(blankLead())
 
 watch(editOpen, (v) => {
   if (!v || !lead.value) return
-  const l = lead.value
-  editForm.value = {
-    name:       l.name         ?? '',
-    email:      l.email        ?? '',
-    phone:      l.phone        ?? '',
-    source:     l.source       ?? '',
-    notes:      l.notes        ?? '',
-    value:      l.value        ?? '',
-    stage_id:   l.stage?.id    ?? null,
-    company_id: l.company?.id  ?? null,
-  }
+  form.value = leadToForm(lead.value)
 })
 
 async function saveLead() {
-  if (!editForm.value.name.trim()) { toast.error('Name is required'); return }
+  if (!String(form.value.name ?? '').trim()) { toast.error('Name is required'); return }
   saving.value = true
   try {
-    await $fetch(`/api/crm/leads/${id}`, {
-      method: 'PATCH',
-      body: {
-        name:       editForm.value.name.trim(),
-        email:      editForm.value.email      || null,
-        phone:      editForm.value.phone      || null,
-        source:     editForm.value.source     || null,
-        notes:      editForm.value.notes      || null,
-        value:      editForm.value.value !== '' ? Number(editForm.value.value) : null,
-        stage_id:   editForm.value.stage_id   || null,
-        company_id: editForm.value.company_id || null,
-      },
-    })
+    await $fetch(`/api/crm/leads/${id}`, { method: 'PATCH', body: formToPayload(form.value) })
     toast.success('Lead updated')
     editOpen.value = false
     await refresh()
@@ -68,16 +40,6 @@ async function saveLead() {
   }
 }
 
-// ── Stage change quick-action ─────────────────────────────────
-async function changeStage(stageId: string | null) {
-  try {
-    await $fetch(`/api/crm/leads/${id}`, { method: 'PATCH', body: { stage_id: stageId } })
-    await refresh()
-  } catch (e: any) {
-    toast.error('Failed to update stage', e?.data?.statusMessage ?? e?.message)
-  }
-}
-
 // ── Convert to order ──────────────────────────────────────────
 const converting = ref(false)
 
@@ -85,9 +47,9 @@ async function convertToOrder() {
   if (!confirm('Convert this lead to a draft order? The lead will be marked as converted.')) return
   converting.value = true
   try {
-    const result = await $fetch<{ order_id: string }>(`/api/crm/leads/${id}/convert`, { method: 'POST' })
+    await $fetch<{ order_id: string }>(`/api/crm/leads/${id}/convert`, { method: 'POST' })
     toast.success('Converted to order')
-    await router.push(`/admin/orders`)
+    await router.push('/admin/orders')
   } catch (e: any) {
     toast.error('Conversion failed', e?.data?.statusMessage ?? e?.message)
   } finally {
@@ -103,17 +65,14 @@ const activityTypes: { value: ActivityType; label: string; icon: string }[] = [
   { value: 'meeting', label: 'Meeting', icon: 'i-lucide-calendar'    },
 ]
 
-const activityForm = ref<{ type: ActivityType; body: string }>({ type: 'note', body: '' })
+const activityForm    = ref<{ type: ActivityType; body: string }>({ type: 'note', body: '' })
 const loggingActivity = ref(false)
 
 async function logActivity() {
   if (!activityForm.value.body.trim()) { toast.error('Activity notes are required'); return }
   loggingActivity.value = true
   try {
-    await $fetch('/api/crm/activities', {
-      method: 'POST',
-      body: { ...activityForm.value, lead_id: id },
-    })
+    await $fetch('/api/crm/activities', { method: 'POST', body: { ...activityForm.value, lead_id: id } })
     toast.success('Activity logged')
     activityForm.value.body = ''
     await refresh()
@@ -130,30 +89,13 @@ async function deleteActivity(actId: string) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
-const stageOptions = computed(() =>
-  (stages.value ?? []).map(s => ({ label: s.name, value: s.id }))
-)
-
-const companyOptions = computed(() =>
-  (companies.value ?? []).map(c => ({ label: c.name, value: c.id }))
-)
-
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function fmtDateTime(d: string) {
-  return new Date(d).toLocaleString('en-MY', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
+const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+const fmtDateTime = (d: string) => new Date(d).toLocaleString('en-MY', {
+  day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+})
 
 const activityIcon: Record<ActivityType, string> = {
-  note:    'i-lucide-sticky-note',
-  call:    'i-lucide-phone',
-  email:   'i-lucide-mail',
-  meeting: 'i-lucide-calendar',
+  note: 'i-lucide-sticky-note', call: 'i-lucide-phone', email: 'i-lucide-mail', meeting: 'i-lucide-calendar',
 }
 </script>
 
@@ -200,7 +142,7 @@ const activityIcon: Record<ActivityType, string> = {
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Left: detail + stage -->
+        <!-- Left: detail -->
         <div class="lg:col-span-1 space-y-4">
 
           <!-- Contact card -->
@@ -227,26 +169,6 @@ const activityIcon: Record<ActivityType, string> = {
             <p v-if="lead.notes" class="text-sm text-(--ui-text-muted) pt-1 border-t border-(--ui-border)">{{ lead.notes }}</p>
           </div>
 
-          <!-- Stage selector -->
-          <div class="rounded-xl border border-(--ui-border) bg-(--ui-bg) p-4 space-y-2">
-            <p class="text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">{{ t('lead.stage') }}</p>
-            <div class="flex flex-col gap-1">
-              <button
-                v-for="stage in stages ?? []"
-                :key="stage.id"
-                class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
-                :class="lead.stage?.id === stage.id
-                  ? 'font-semibold text-(--ui-text-highlighted) bg-(--ui-bg-elevated)'
-                  : 'text-(--ui-text-muted) hover:bg-(--ui-bg-elevated)'"
-                @click="changeStage(stage.id)"
-              >
-                <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: stage.color }" />
-                {{ stage.name }}
-                <UIcon v-if="lead.stage?.id === stage.id" name="i-lucide-check" class="size-3.5 ml-auto" />
-              </button>
-            </div>
-          </div>
-
           <!-- Linked order -->
           <div v-if="lead.order" class="rounded-xl border border-(--ui-border) bg-(--ui-bg) p-4">
             <p class="text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted) mb-3">{{ t('lead.linkedOrder') }}</p>
@@ -255,7 +177,7 @@ const activityIcon: Record<ActivityType, string> = {
                 <p class="text-sm font-semibold text-(--ui-text-highlighted)">{{ lead.order.order_number || 'Draft' }}</p>
                 <p class="text-xs text-(--ui-text-muted)">{{ lead.order.status }}</p>
               </div>
-              <UButton variant="outline" color="neutral" size="sm" :to="`/admin/orders`">
+              <UButton variant="outline" color="neutral" size="sm" to="/admin/orders">
                 {{ t('lead.viewOrder') }}
               </UButton>
             </div>
@@ -338,46 +260,15 @@ const activityIcon: Record<ActivityType, string> = {
       </div>
     </template>
 
-    <!-- Edit lead slideover -->
-    <USlideover v-model:open="editOpen" :title="lead?.name ?? t('action.edit')">
-      <template #body>
-        <div class="space-y-4 p-4">
-          <UFormField :label="t('field.name')" required>
-            <UInput v-model="editForm.name" class="w-full" />
-          </UFormField>
-          <div class="grid grid-cols-2 gap-3">
-            <UFormField :label="t('field.email')">
-              <UInput v-model="editForm.email" type="email" class="w-full" />
-            </UFormField>
-            <UFormField :label="t('field.phone')">
-              <UInput v-model="editForm.phone" class="w-full" />
-            </UFormField>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <UFormField :label="t('lead.stage')">
-              <USelectMenu v-model="editForm.stage_id" :items="stageOptions" value-key="value" placeholder="Select stage…" class="w-full" />
-            </UFormField>
-            <UFormField :label="t('lead.value')">
-              <UInput v-model="editForm.value" type="number" min="0" class="w-full" />
-            </UFormField>
-          </div>
-          <UFormField :label="t('lead.company')">
-            <USelectMenu v-model="editForm.company_id" :items="companyOptions" value-key="value" placeholder="Select company…" searchable class="w-full" />
-          </UFormField>
-          <UFormField :label="t('lead.source')">
-            <UInput v-model="editForm.source" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('field.notes')">
-            <UTextarea v-model="editForm.notes" :rows="3" class="w-full" />
-          </UFormField>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex gap-2 p-4">
-          <UButton :loading="saving" @click="saveLead">{{ t('action.save') }}</UButton>
-          <UButton variant="outline" color="neutral" @click="editOpen = false">{{ t('action.cancel') }}</UButton>
-        </div>
-      </template>
-    </USlideover>
+    <!-- Edit lead form -->
+    <AppFormSlideover
+      v-model="form"
+      v-model:open="editOpen"
+      :title="lead?.name ?? t('action.edit')"
+      :fields="fields"
+      :loading="saving"
+      :save-label="t('action.save')"
+      @save="saveLead"
+    />
   </section>
 </template>

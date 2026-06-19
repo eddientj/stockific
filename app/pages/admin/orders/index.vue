@@ -1,8 +1,9 @@
 ﻿<script setup lang="ts">
 import { useOrders, ORDER_STATUS_CFG, buildOrderTimeline, orderItemWarning } from '~/composables/useOrders'
 import type { Order, OrderStatus } from '~/composables/useOrders'
-import type { CustomerRow, ProductRow } from '~/types'
+import type { CustomerRow, ProductRow, ExportColumn } from '~/types'
 import type { FieldDef } from '~/types/form'
+import type { TableColumn } from '@nuxt/ui'
 
 definePageMeta({ layout: 'admin' })
 
@@ -35,15 +36,44 @@ async function createInvoice(orderId: string) {
   }
 }
 
-// ── Status chips ──────────────────────────────────────────────
-const statusChips = computed(() =>
-  (Object.keys(ORDER_STATUS_CFG) as OrderStatus[]).map(key => ({
-    key,
-    label: t(`status.${key.toLowerCase()}`),
-    count: countByStatus.value[key],
-    color: ORDER_STATUS_CFG[key].color,
-    bg:    ORDER_STATUS_CFG[key].bg,
-  }))
+// ── Table config ──────────────────────────────────────────────
+const columns = computed<TableColumn<Order>[]>(() => [
+  { accessorKey: 'order_number', header: t('ord.colOrder'),    enableSorting: true  },
+  { id: 'customer',              header: t('ord.colCustomer')                       },
+  { accessorKey: 'created_at',   header: t('ord.colDate'),     enableSorting: true  },
+  { id: 'items',                 header: t('ord.colItems')                          },
+  { id: 'amount',                header: t('ord.colAmount')                         },
+  { accessorKey: 'status',       header: t('ord.colStatus')                         },
+  { id: 'actions',               header: ''                                         },
+])
+
+const filterOpen = ref(false)
+const activeFilterCount = computed(() => (statusFilter.value !== 'all' ? 1 : 0))
+const statusOptions = computed(() => [
+  { label: t('ord.allStatuses'), value: 'all' },
+  ...(Object.keys(ORDER_STATUS_CFG) as OrderStatus[]).map(k => ({ label: t('status.' + k.toLowerCase()), value: k })),
+])
+
+function itemCount(o: Order) { return o.order_items.reduce((s, i) => s + i.qty, 0) }
+
+const exportColumns: ExportColumn[] = [
+  { key: 'order_number', label: 'Order'       },
+  { key: 'customer',     label: 'Customer'    },
+  { key: 'date',         label: 'Date'        },
+  { key: 'items',        label: 'Items'       },
+  { key: 'amount',       label: 'Amount (RM)' },
+  { key: 'status',       label: 'Status'      },
+]
+const exportData = computed(() =>
+  filtered.value.map(o => ({
+    id:           o.id,
+    order_number: o.order_number,
+    customer:     o.customer_name,
+    date:         o.created_at.slice(0, 10),
+    items:        itemCount(o),
+    amount:       orderTotal(o),
+    status:       o.status,
+  })),
 )
 
 const selectedTimeline = computed(() =>
@@ -265,99 +295,100 @@ async function submitOrder() {
 <template>
   <section class="space-y-6">
 
-    <AppPageHeader :title="t('ord.title')" :description="t('ord.subtitle')">
-      <template #actions>
-        <UButton icon="i-lucide-package-plus" @click="openCreate">{{ t('ord.new') }}</UButton>
-      </template>
-    </AppPageHeader>
+    <AppPageHeader :title="t('ord.title')" :description="t('ord.subtitle')" />
 
-    <AppStatusChips v-model="statusFilter" :chips="statusChips" />
-
-    <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-      <UInput v-model="search" icon="i-lucide-search" :placeholder="t('ord.search')" class="w-full sm:w-72" />
-      <div class="flex items-center gap-2">
-        <span class="text-sm text-(--ui-text-muted)">{{ filtered.length }} {{ t('ord.ordersLabel') }}</span>
-        <UButton v-if="statusFilter !== 'all'" size="xs" variant="soft" color="neutral" icon="i-lucide-x" @click="statusFilter = 'all'">
-          {{ t('ord.clearFilter') }}
-        </UButton>
-      </div>
-    </div>
-
-    <AppListTable :row-count="filtered.length">
-      <template #head>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap">{{ t('ord.colOrder') }}</th>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted)">{{ t('ord.colCustomer') }}</th>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap hidden sm:table-cell">{{ t('ord.colDate') }}</th>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted) hidden md:table-cell">{{ t('ord.colItems') }}</th>
-        <th class="text-right px-4 py-3 font-medium text-(--ui-text-muted) whitespace-nowrap">{{ t('ord.colAmount') }}</th>
-        <th class="text-left px-4 py-3 font-medium text-(--ui-text-muted)">{{ t('ord.colStatus') }}</th>
-        <th class="px-4 py-3 w-10" />
+    <AppDataTable
+      :columns="columns"
+      :data="filtered"
+      :loading="pending"
+      :create-label="t('ord.new')"
+      :search-field="['order_number', 'customer_name', 'customer_email']"
+      filterable
+      :active-filters="activeFilterCount"
+      export-filename="orders"
+      :export-columns="exportColumns"
+      :export-data="exportData"
+      empty-icon="i-lucide-package"
+      :empty-title="t('ord.noOrders')"
+      :empty-hint="t('ord.noOrdersEmpty')"
+      @create="openCreate"
+      @filter="filterOpen = true"
+    >
+      <template #order_number-cell="{ row }">
+        <button class="font-mono text-xs font-semibold text-indigo-500 hover:underline" @click="openDetail(row.original)">
+          {{ row.original.order_number }}
+        </button>
       </template>
 
-      <tr
-        v-for="o in filtered"
-        :key="o.id"
-        class="border-b border-(--ui-border) last:border-0 hover:bg-(--ui-bg-elevated) transition-colors cursor-pointer"
-        @click="openDetail(o)"
-      >
-        <td class="px-4 py-3">
-          <span class="font-mono text-xs font-semibold text-(--ui-text-highlighted)">{{ o.order_number }}</span>
-        </td>
-        <td class="px-4 py-3">
-          <div class="flex items-center gap-2.5">
-            <div class="w-7 h-7 rounded-full bg-(--ui-bg-elevated) border border-(--ui-border) flex items-center justify-center shrink-0">
-              <span class="text-[10px] font-bold text-(--ui-text-muted)">
-                {{ o.customer_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2) }}
-              </span>
-            </div>
-            <div class="min-w-0">
-              <p class="font-medium text-(--ui-text-highlighted) truncate leading-tight">{{ o.customer_name }}</p>
-              <p v-if="o.customer_email" class="text-xs text-(--ui-text-muted) truncate">{{ o.customer_email }}</p>
-            </div>
-          </div>
-        </td>
-        <td class="px-4 py-3 text-(--ui-text-muted) whitespace-nowrap hidden sm:table-cell">{{ o.created_at.slice(0, 10) }}</td>
-        <td class="px-4 py-3 hidden md:table-cell">
-          <div class="flex items-center gap-1.5">
-            <span class="text-(--ui-text-muted)">
-              {{ o.order_items.reduce((s, i) => s + i.qty, 0) }} item{{ o.order_items.reduce((s, i) => s + i.qty, 0) !== 1 ? 's' : '' }}
+      <template #customer-cell="{ row }">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-full bg-(--ui-bg-elevated) border border-(--ui-border) flex items-center justify-center shrink-0">
+            <span class="text-[10px] font-bold text-(--ui-text-muted)">
+              {{ row.original.customer_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2) }}
             </span>
-            <UTooltip v-if="o.order_items.some(i => orderItemWarning(i))" :text="o.order_items.filter(i => orderItemWarning(i)).map(i => orderItemWarning(i)).join(', ')">
-              <UIcon name="i-lucide-alert-triangle" class="size-3.5 text-amber-500 shrink-0" />
-            </UTooltip>
           </div>
-        </td>
-        <td class="px-4 py-3 text-right font-semibold text-(--ui-text-highlighted) whitespace-nowrap">{{ rm(orderTotal(o)) }}</td>
-        <td class="px-4 py-3">
-          <span
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
-            :class="[ORDER_STATUS_CFG[o.status].color, ORDER_STATUS_CFG[o.status].bg]"
-          >
-            <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="ORDER_STATUS_CFG[o.status].dot" />
-            {{ t('status.' + o.status.toLowerCase()) }}
-          </span>
-        </td>
-        <td class="px-4 py-3">
-          <UIcon name="i-lucide-chevron-right" class="size-4 text-(--ui-text-muted)" />
-        </td>
-      </tr>
-
-      <template #empty>
-        <div class="py-16 text-center">
-          <UIcon name="i-lucide-package" class="size-10 text-(--ui-text-muted) mx-auto mb-3" />
-          <p class="font-medium text-(--ui-text-highlighted)">
-            {{ pending ? t('ord.loading') : t('ord.noOrders') }}
-          </p>
-          <p v-if="!pending" class="text-sm text-(--ui-text-muted) mt-1">
-            {{ statusFilter !== 'all' ? t('ord.noOrdersFilter') : t('ord.noOrdersEmpty') }}
-          </p>
+          <div class="min-w-0">
+            <p class="font-medium text-(--ui-text-highlighted) truncate leading-tight">{{ row.original.customer_name }}</p>
+            <p v-if="row.original.customer_email" class="text-xs text-(--ui-text-muted) truncate">{{ row.original.customer_email }}</p>
+          </div>
         </div>
       </template>
-    </AppListTable>
 
-    <p class="text-xs text-(--ui-text-muted) text-right">
+      <template #created_at-cell="{ row }">
+        <span class="text-(--ui-text-muted) text-sm">{{ row.original.created_at.slice(0, 10) }}</span>
+      </template>
+
+      <template #items-cell="{ row }">
+        <div class="flex items-center gap-1.5">
+          <span class="text-(--ui-text-muted) text-sm">{{ itemCount(row.original) }} item{{ itemCount(row.original) !== 1 ? 's' : '' }}</span>
+          <UTooltip v-if="row.original.order_items.some(i => orderItemWarning(i))" :text="row.original.order_items.filter(i => orderItemWarning(i)).map(i => orderItemWarning(i)).join(', ')">
+            <UIcon name="i-lucide-alert-triangle" class="size-3.5 text-amber-500 shrink-0" />
+          </UTooltip>
+        </div>
+      </template>
+
+      <template #amount-cell="{ row }">
+        <span class="font-semibold text-(--ui-text-highlighted)">{{ rm(orderTotal(row.original)) }}</span>
+      </template>
+
+      <template #status-cell="{ row }">
+        <span
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
+          :class="[ORDER_STATUS_CFG[row.original.status].color, ORDER_STATUS_CFG[row.original.status].bg]"
+        >
+          <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="ORDER_STATUS_CFG[row.original.status].dot" />
+          {{ t('status.' + row.original.status.toLowerCase()) }}
+        </span>
+      </template>
+
+      <template #actions-cell="{ row }">
+        <div class="flex justify-end">
+          <UTooltip :text="t('action.view')">
+            <UButton icon="i-lucide-arrow-right" variant="ghost" color="neutral" size="sm" @click="openDetail(row.original)" />
+          </UTooltip>
+        </div>
+      </template>
+
+    </AppDataTable>
+
+    <p class="text-xs text-(--ui-text-muted) text-right mt-3">
       {{ t('ord.totalRevenue') }} <span class="font-semibold text-(--ui-text-highlighted)">{{ rm(totalRevenue) }}</span>
     </p>
+
+    <!-- Status filter slideover -->
+    <AppSlideover
+      v-model:open="filterOpen"
+      :title="t('ord.filter')"
+      :description="t('ord.filterHint')"
+      :submit-label="t('action.apply')"
+      :cancel-label="t('action.reset')"
+      @submit="filterOpen = false"
+      @cancel="statusFilter = 'all'"
+    >
+      <UFormField :label="t('ord.colStatus')">
+        <USelect v-model="statusFilter" :items="statusOptions" class="w-full" />
+      </UFormField>
+    </AppSlideover>
 
     <!-- ── Order detail slideover ─────────────────────────────── -->
     <USlideover v-model:open="slideOpen" side="right" class="max-w-lg">

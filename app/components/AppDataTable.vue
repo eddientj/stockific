@@ -1,9 +1,17 @@
 <script setup lang="ts" generic="TRow extends { id: string }">
-import { h, resolveComponent } from 'vue'
+import { h, resolveComponent, getCurrentInstance } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { ExportColumn } from '~/types'
 
 const { t } = useLocale()
+
+// ── Auto-detect which bulk actions the parent actually handles ──
+// A page that doesn't bind @bulk-edit / @bulk-delete shouldn't get a
+// dead button. Selection only appears when at least one bulk op exists.
+const instance = getCurrentInstance()
+const hasBulkEdit   = computed(() => !!instance?.vnode.props?.onBulkEdit)
+const hasBulkDelete = computed(() => !!instance?.vnode.props?.onBulkDelete)
+const selectable    = computed(() => hasBulkEdit.value || hasBulkDelete.value)
 
 type Row = Record<string, any>
 
@@ -18,6 +26,9 @@ const props = defineProps<{
   exportFilename?:  string
   exportColumns?:   ExportColumn[]
   exportData?:      Row[]  // Pre-processed flat rows for export (overrides data)
+  emptyIcon?:       string
+  emptyTitle?:      string
+  emptyHint?:       string
 }>()
 
 const emit = defineEmits<{
@@ -110,7 +121,7 @@ function toggleRow(id: string) {
 const UIconComp = resolveComponent('UIcon')
 
 const allColumns = computed<TableColumn<TRow>[]>(() => [
-  { id: '_select', header: ' ', size: 40 } as TableColumn<TRow>,
+  ...(selectable.value ? [{ id: '_select', header: ' ', size: 40 } as TableColumn<TRow>] : []),
   ...props.columns.map(col => {
     if (!col.enableSorting) return col as TableColumn<TRow>
     const label = typeof col.header === 'string' ? col.header : ''
@@ -149,6 +160,7 @@ const allColumns = computed<TableColumn<TRow>[]>(() => [
 ])
 
 const parentSlots = useSlots()
+const forwardedSlots = computed(() => Object.keys(parentSlots).filter(n => n !== 'empty'))
 
 // ── Export / Import (via useXlsx) ─────────────────────────
 const { exportSheet, importSheet } = useXlsx()
@@ -255,6 +267,7 @@ function confirmBulkDelete() {
             {{ selectedIds.size }} {{ t('table.selected') }}
           </span>
           <UButton
+            v-if="hasBulkEdit"
             variant="ghost"
             color="neutral"
             icon="i-lucide-pencil"
@@ -264,6 +277,7 @@ function confirmBulkDelete() {
             {{ t('table.editSelected') }}
           </UButton>
           <UButton
+            v-if="hasBulkDelete"
             variant="ghost"
             color="error"
             icon="i-lucide-trash-2"
@@ -317,10 +331,27 @@ function confirmBulkDelete() {
           />
         </template>
 
-        <!-- Forward all other slots from parent (Object.keys gives string[], avoids symbol/undefined) -->
-        <template v-for="name in Object.keys(parentSlots)" :key="name" #[name]="slotData">
+        <!-- Forward all other slots from parent (except #empty, handled below) -->
+        <template v-for="name in forwardedSlots" :key="name" #[name]="slotData">
           <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
           <slot :name="name" v-bind="(slotData as any) ?? {}" />
+        </template>
+
+        <!-- Standardized empty state (parent #empty overrides) -->
+        <template #empty>
+          <slot name="empty">
+            <div
+              class="flex flex-col items-center py-16 gap-3 cursor-pointer group"
+              @click="emit('create')"
+            >
+              <UIcon :name="emptyIcon ?? 'i-lucide-inbox'" class="size-10 text-(--ui-text-muted)" />
+              <p class="font-medium text-(--ui-text-highlighted)">{{ emptyTitle ?? t('table.empty') }}</p>
+              <p v-if="emptyHint" class="text-sm text-(--ui-text-muted)">{{ emptyHint }}</p>
+              <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click.stop="emit('create')">
+                {{ createLabel ?? t('action.new') }}
+              </UButton>
+            </div>
+          </slot>
         </template>
 
       </UTable>

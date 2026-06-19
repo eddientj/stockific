@@ -1,13 +1,34 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { CompanyRow } from '~/types'
+import type { CompanyRow, ExportColumn } from '~/types'
+import type { FieldDef } from '~/types/form'
 
 definePageMeta({ layout: 'admin' })
 
 const { t } = useLocale()
 const toast = useAppToast()
 
-const { companies, pending, createCompany, updateCompany, deleteCompany } = useCompanies()
+const { companies, pending, refresh, createCompany, updateCompany } = useCompanies()
+
+const FIELDS = computed<FieldDef[]>(() => [
+  { name: 'name',     label: t('field.name'),       type: 'text',     required: true, span: 2, placeholder: 'Acme Sdn Bhd' },
+  { name: 'industry', label: t('company.industry'), type: 'text',     placeholder: 'Technology, Retail…' },
+  { name: 'website',  label: t('company.website'),  type: 'url',      placeholder: 'https://example.com' },
+  { name: 'phone',    label: t('field.phone'),      type: 'phone' },
+  { name: 'email',    label: t('field.email'),      type: 'email',    placeholder: 'info@company.com' },
+  { name: 'address',  label: t('field.address'),    type: 'text',     span: 2, placeholder: 'No 12, Jalan Puteri 2, Puchong' },
+  { name: 'notes',    label: t('field.notes'),      type: 'textarea', rows: 3, span: 2, placeholder: 'Any notes about this company…' },
+])
+
+async function bulkDelete(ids: string[]) {
+  try {
+    await Promise.all(ids.map(id => $fetch(`/api/crm/companies/${id}`, { method: 'DELETE' })))
+    toast.success(`${ids.length} companies deleted`)
+    await refresh()
+  } catch (e: any) {
+    toast.error('Bulk delete failed', e?.data?.statusMessage ?? e?.message)
+  }
+}
 
 // ── Slideover ─────────────────────────────────────────────────
 const slideOpen = ref(false)
@@ -72,6 +93,41 @@ const columns = computed<TableColumn<CompanyRow>[]>(() => [
   { accessorKey: 'email',    header: t('field.email'),         enableSorting: false },
   { id: 'actions', header: '' },
 ])
+
+const exportColumns: ExportColumn[] = [
+  { key: 'name',     label: 'Company'  },
+  { key: 'industry', label: 'Industry' },
+  { key: 'website',  label: 'Website'  },
+  { key: 'phone',    label: 'Phone'    },
+  { key: 'email',    label: 'Email'    },
+  { key: 'address',  label: 'Address'  },
+]
+const exportData = computed(() =>
+  (companies.value ?? []).map(c => ({
+    id:       c.id,
+    name:     c.name,
+    industry: c.industry ?? '',
+    website:  c.website ?? '',
+    phone:    c.phone ?? '',
+    email:    c.email ?? '',
+    address:  c.address ?? '',
+  })),
+)
+
+// ── Filter (industry) ─────────────────────────────────────────
+const filterOpen = ref(false)
+const filters = reactive({ industries: [] as string[] })
+const activeFilterCount = computed(() => (filters.industries.length > 0 ? 1 : 0))
+const industryOptions = computed(() => {
+  const list = [...new Set((companies.value ?? []).map(c => c.industry).filter(Boolean) as string[])]
+  return list.sort().map(i => ({ label: i, value: i }))
+})
+const filteredCompanies = computed(() => {
+  let rows = companies.value ?? []
+  if (filters.industries.length) rows = rows.filter(c => c.industry && filters.industries.includes(c.industry))
+  return rows
+})
+function resetFilters() { filters.industries = [] }
 </script>
 
 <template>
@@ -80,21 +136,22 @@ const columns = computed<TableColumn<CompanyRow>[]>(() => [
 
     <AppDataTable
       :columns="columns"
-      :data="companies ?? []"
+      :data="filteredCompanies"
       :loading="pending"
       :create-label="t('company.new')"
       search-field="name"
+      filterable
+      :active-filters="activeFilterCount"
+      export-filename="companies"
+      :export-columns="exportColumns"
+      :export-data="exportData"
+      empty-icon="i-lucide-building-2"
+      :empty-title="t('company.noCompanies')"
+      :empty-hint="t('company.noCompHint')"
       @create="openNew"
+      @filter="filterOpen = true"
+      @bulk-delete="bulkDelete"
     >
-      <template #empty>
-        <div class="flex flex-col items-center py-16 gap-3">
-          <UIcon name="i-lucide-building-2" class="size-10 text-(--ui-text-muted)" />
-          <p class="font-medium text-(--ui-text-highlighted)">{{ t('company.noCompanies') }}</p>
-          <p class="text-sm text-(--ui-text-muted)">{{ t('company.noCompHint') }}</p>
-          <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click="openNew">{{ t('company.new') }}</UButton>
-        </div>
-      </template>
-
       <template #name-cell="{ row }">
         <span class="font-medium text-(--ui-text-highlighted)">{{ row.original.name }}</span>
       </template>
@@ -113,52 +170,48 @@ const columns = computed<TableColumn<CompanyRow>[]>(() => [
 
       <template #actions-cell="{ row }">
         <div class="flex justify-end gap-1">
-          <UButton icon="i-lucide-pencil"  variant="ghost" color="neutral" size="sm" @click="openEdit(row.original)" />
-          <UButton icon="i-lucide-trash-2" variant="ghost" color="error"   size="sm"
-            @click="deleteCompany(row.original.id, row.original.name)" />
+          <UTooltip :text="t('action.edit')">
+            <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" @click="openEdit(row.original)" />
+          </UTooltip>
+          <UTooltip :text="t('action.delete')">
+            <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm"
+              @click="bulkDelete([row.original.id])" />
+          </UTooltip>
         </div>
       </template>
     </AppDataTable>
 
     <!-- Company form slideover -->
-    <USlideover v-model:open="slideOpen" :title="editing ? editing.name : t('company.new')">
-      <template #body>
-        <div class="space-y-4 p-4">
-          <UFormField :label="t('field.name')" required>
-            <UInput v-model="form.name" placeholder="Acme Sdn Bhd" class="w-full" />
-          </UFormField>
-          <div class="grid grid-cols-2 gap-3">
-            <UFormField :label="t('company.industry')">
-              <UInput v-model="form.industry" placeholder="Technology, Retail…" class="w-full" />
-            </UFormField>
-            <UFormField :label="t('company.website')">
-              <UInput v-model="form.website" placeholder="https://example.com" class="w-full" />
-            </UFormField>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <UFormField :label="t('field.phone')">
-              <UInput v-model="form.phone" placeholder="+60 3 1234 5678" class="w-full" />
-            </UFormField>
-            <UFormField :label="t('field.email')">
-              <UInput v-model="form.email" type="email" placeholder="info@company.com" class="w-full" />
-            </UFormField>
-          </div>
-          <UFormField :label="t('field.address')">
-            <UInput v-model="form.address" placeholder="No 12, Jalan Puteri 2, Puchong" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('field.notes')">
-            <UTextarea v-model="form.notes" :rows="3" placeholder="Any notes about this company…" class="w-full" />
-          </UFormField>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex gap-2 p-4">
-          <UButton :loading="saving" @click="save">
-            {{ editing ? t('action.save') : t('company.new') }}
-          </UButton>
-          <UButton variant="outline" color="neutral" @click="slideOpen = false">{{ t('action.cancel') }}</UButton>
-        </div>
-      </template>
-    </USlideover>
+    <AppFormSlideover
+      v-model="form"
+      v-model:open="slideOpen"
+      :title="editing ? editing.name : t('company.new')"
+      :fields="FIELDS"
+      :loading="saving"
+      :save-label="editing ? t('action.save') : t('company.new')"
+      @save="save"
+    />
+
+    <!-- Industry filter slideover -->
+    <AppSlideover
+      v-model:open="filterOpen"
+      :title="t('company.filter')"
+      :description="t('company.filterHint')"
+      :submit-label="t('action.apply')"
+      :cancel-label="t('action.reset')"
+      @submit="filterOpen = false"
+      @cancel="resetFilters"
+    >
+      <UFormField :label="t('company.industry')">
+        <USelectMenu
+          v-model="filters.industries"
+          :items="industryOptions"
+          multiple
+          value-key="value"
+          :placeholder="t('company.industry')"
+          class="w-full"
+        />
+      </UFormField>
+    </AppSlideover>
   </section>
 </template>

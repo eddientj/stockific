@@ -1,12 +1,55 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { SupplierRow } from '~/types'
+import type { SupplierRow, ExportColumn } from '~/types'
 import type { FieldDef } from '~/types/form'
 
 definePageMeta({ layout: 'admin' })
 
-const { t } = useLocale()
-const { suppliers, pending, createSupplier, updateSupplier, deleteSupplier } = useSuppliers()
+const { t }   = useLocale()
+const toast   = useAppToast()
+const { suppliers, pending, refresh, createSupplier, updateSupplier } = useSuppliers()
+
+async function bulkDelete(ids: string[]) {
+  try {
+    await Promise.all(ids.map(id => $fetch(`/api/suppliers/${id}`, { method: 'DELETE' })))
+    toast.success(`${ids.length} suppliers deleted`)
+    await refresh()
+  } catch (e: any) {
+    toast.error('Bulk delete failed', e?.data?.statusMessage ?? e?.message)
+  }
+}
+
+const exportColumns: ExportColumn[] = [
+  { key: 'name',         label: 'Name'    },
+  { key: 'contact_name', label: 'Contact' },
+  { key: 'email',        label: 'Email'   },
+  { key: 'phone',        label: 'Phone'   },
+  { key: 'address',      label: 'Address' },
+  { key: 'notes',        label: 'Notes'   },
+]
+// ── Filter (contactable) ──────────────────────────────────────
+const filterOpen = ref(false)
+const filters = reactive({ hasEmail: false, hasPhone: false })
+const activeFilterCount = computed(() => (filters.hasEmail ? 1 : 0) + (filters.hasPhone ? 1 : 0))
+const filteredSuppliers = computed(() => {
+  let rows = suppliers.value ?? []
+  if (filters.hasEmail) rows = rows.filter(s => !!s.email)
+  if (filters.hasPhone) rows = rows.filter(s => !!s.phone)
+  return rows
+})
+function resetFilters() { filters.hasEmail = false; filters.hasPhone = false }
+
+const exportData = computed(() =>
+  filteredSuppliers.value.map(s => ({
+    id:           s.id,
+    name:         s.name,
+    contact_name: s.contact_name ?? '',
+    email:        s.email ?? '',
+    phone:        s.phone ?? '',
+    address:      s.address ?? '',
+    notes:        s.notes ?? '',
+  })),
+)
 
 const open    = ref(false)
 const editing = ref<SupplierRow | null>(null)
@@ -58,37 +101,50 @@ const columns: TableColumn<SupplierRow>[] = [
 
 <template>
   <section>
-    <div class="flex items-center justify-between mb-6">
-      <AppPageHeader title="Suppliers" description="Manage your product suppliers." class="mb-0" />
-      <UButton icon="i-lucide-plus" @click="openCreate">New supplier</UButton>
-    </div>
+    <AppPageHeader title="Suppliers" description="Manage your product suppliers." />
 
-    <UCard>
-      <UTable :data="suppliers ?? []" :columns="columns" :loading="pending">
-        <template #name-cell="{ row }">
-          <span class="font-medium text-(--ui-text-highlighted)">{{ row.original.name }}</span>
-        </template>
-        <template #contact_name-cell="{ row }">
-          {{ row.original.contact_name || '—' }}
-        </template>
-        <template #email-cell="{ row }">
-          <a v-if="row.original.email" :href="`mailto:${row.original.email}`"
-            class="text-(--ui-text-muted) hover:text-indigo-500 text-sm">{{ row.original.email }}</a>
-          <span v-else class="text-(--ui-text-muted)">—</span>
-        </template>
-        <template #phone-cell="{ row }">{{ row.original.phone || '—' }}</template>
-        <template #actions-cell="{ row }">
-          <div class="flex justify-end gap-1">
-            <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="xs" @click="openEdit(row.original)" />
-            <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="xs"
-              @click="deleteSupplier(row.original.id, row.original.name)" />
-          </div>
-        </template>
-        <template #empty>
-          <div class="py-10 text-center text-sm text-(--ui-text-muted)">No suppliers yet. Add your first supplier.</div>
-        </template>
-      </UTable>
-    </UCard>
+    <AppDataTable
+      :columns="columns"
+      :data="filteredSuppliers"
+      :loading="pending"
+      create-label="New supplier"
+      search-field="name"
+      filterable
+      :active-filters="activeFilterCount"
+      export-filename="suppliers"
+      :export-columns="exportColumns"
+      :export-data="exportData"
+      empty-icon="i-lucide-truck"
+      empty-title="No suppliers yet"
+      empty-hint="Add your first supplier to get started."
+      @create="openCreate"
+      @filter="filterOpen = true"
+      @bulk-delete="bulkDelete"
+    >
+      <template #name-cell="{ row }">
+        <span class="font-medium text-(--ui-text-highlighted)">{{ row.original.name }}</span>
+      </template>
+      <template #contact_name-cell="{ row }">
+        {{ row.original.contact_name || '—' }}
+      </template>
+      <template #email-cell="{ row }">
+        <a v-if="row.original.email" :href="`mailto:${row.original.email}`"
+          class="text-(--ui-text-muted) hover:text-indigo-500 text-sm">{{ row.original.email }}</a>
+        <span v-else class="text-(--ui-text-muted)">—</span>
+      </template>
+      <template #phone-cell="{ row }">{{ row.original.phone || '—' }}</template>
+      <template #actions-cell="{ row }">
+        <div class="flex justify-end gap-1">
+          <UTooltip :text="t('action.edit')">
+            <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" @click="openEdit(row.original)" />
+          </UTooltip>
+          <UTooltip :text="t('action.delete')">
+            <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm"
+              @click="bulkDelete([row.original.id])" />
+          </UTooltip>
+        </div>
+      </template>
+    </AppDataTable>
 
     <AppFormSlideover
       v-model="form"
@@ -99,5 +155,21 @@ const columns: TableColumn<SupplierRow>[] = [
       :save-label="editing ? t('action.save') : 'Create supplier'"
       @save="save"
     />
+
+    <!-- Filter slideover -->
+    <AppSlideover
+      v-model:open="filterOpen"
+      title="Filter suppliers"
+      description="Show only suppliers with contact details."
+      :submit-label="t('action.apply')"
+      :cancel-label="t('action.reset')"
+      @submit="filterOpen = false"
+      @cancel="resetFilters"
+    >
+      <div class="space-y-3">
+        <UCheckbox v-model="filters.hasEmail" label="Has email" />
+        <UCheckbox v-model="filters.hasPhone" label="Has phone" />
+      </div>
+    </AppSlideover>
   </section>
 </template>

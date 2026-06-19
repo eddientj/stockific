@@ -10,7 +10,7 @@ export type InvoiceStatusCfg = {
 export const INVOICE_STATUS_CFG: Record<InvoiceStatus, InvoiceStatusCfg> = {
   draft:     { color: 'text-(--ui-text-muted)',                  bg: 'bg-(--ui-bg-elevated) border-(--ui-border)',           dot: 'bg-(--ui-text-muted)'  },
   sent:      { color: 'text-sky-600    dark:text-sky-400',       bg: 'bg-sky-50    dark:bg-sky-900/30    border-sky-200',    dot: 'bg-sky-500'    },
-  paid:      { color: 'text-teal-600   dark:text-teal-400',      bg: 'bg-teal-50   dark:bg-teal-900/30   border-teal-200',   dot: 'bg-teal-500'   },
+  paid:      { color: 'text-emerald-600 dark:text-emerald-400',  bg: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200', dot: 'bg-emerald-500' },
   overdue:   { color: 'text-red-600    dark:text-red-400',       bg: 'bg-red-50    dark:bg-red-900/30    border-red-200',    dot: 'bg-red-500'    },
   cancelled: { color: 'text-(--ui-text-muted)',                  bg: 'bg-(--ui-bg-elevated) border-(--ui-border)',           dot: 'bg-(--ui-border)'  },
   refunded:  { color: 'text-orange-600  dark:text-orange-400',  bg: 'bg-orange-50 dark:bg-orange-900/30 border-orange-200', dot: 'bg-orange-500' },

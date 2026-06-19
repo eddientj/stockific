@@ -1,208 +1,161 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import type { FieldDef } from '~/types/form'
+import type { ExportColumn } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
-const toast = useToast()
-const { t } = useLocale()
+const { t }  = useLocale()
+const toast  = useAppToast()
 
-interface Category {
-  id: string
-  name: string
-  product_count: number
-}
+interface Category { id: string; name: string; product_count: number }
 
 const { data: categories, refresh } = await useFetch<Category[]>('/api/categories')
 
-// ── Slideover state ───────────────────────────────────────────
-const slideOpen  = ref(false)
-const editing    = ref<Category | null>(null)
-const formName   = ref('')
-const saving     = ref(false)
+// ── Create / edit form ────────────────────────────────────────
+const slideOpen = ref(false)
+const editing   = ref<Category | null>(null)
+const saving    = ref(false)
+const form      = ref<Record<string, any>>({ name: '' })
 
-// ── Delete modal state ────────────────────────────────────────
-const confirmOpen   = ref(false)
-const deleteTarget  = ref<Category | null>(null)
-const deleting      = ref(false)
+const FIELDS = computed<FieldDef[]>(() => [
+  { name: 'name', label: t('cat.name'), type: 'text', required: true, span: 2, placeholder: 'e.g. Trading Cards' },
+])
 
-function openAdd() {
-  editing.value = null
-  formName.value = ''
-  slideOpen.value = true
-}
+function openCreate() { editing.value = null; form.value = { name: '' }; slideOpen.value = true }
+function openEdit(c: Category) { editing.value = c; form.value = { name: c.name }; slideOpen.value = true }
 
-function openEdit(cat: Category) {
-  editing.value = cat
-  formName.value = cat.name
-  slideOpen.value = true
-}
-
-function askDelete(cat: Category) {
-  deleteTarget.value = cat
-  confirmOpen.value  = true
-}
-
-async function submit() {
-  if (!formName.value.trim()) return
+async function save() {
+  const name = String(form.value.name ?? '').trim()
+  if (!name) { toast.error(t('cat.name') + ' is required'); return }
   saving.value = true
   try {
     if (editing.value) {
-      await $fetch(`/api/categories/${editing.value.id}`, {
-        method: 'PATCH',
-        body: { name: formName.value.trim() },
-      })
-      toast.add({ title: t('cat.saveChanges'), description: `"${formName.value.trim()}" updated.`, color: 'success', icon: 'i-lucide-check' })
+      await $fetch(`/api/categories/${editing.value.id}`, { method: 'PATCH', body: { name } })
+      toast.success(`"${name}" updated`)
     } else {
-      await $fetch('/api/categories', {
-        method: 'POST',
-        body: { name: formName.value.trim() },
-      })
-      toast.add({ title: t('cat.create'), description: `"${formName.value.trim()}" created.`, color: 'success', icon: 'i-lucide-check' })
+      await $fetch('/api/categories', { method: 'POST', body: { name } })
+      toast.success(`"${name}" created`)
     }
     slideOpen.value = false
     await refresh()
   } catch (e: any) {
-    toast.add({ title: 'Error', description: e?.data?.statusMessage ?? e?.message, color: 'error' })
+    toast.error('Failed to save', e?.data?.statusMessage ?? e?.message)
   } finally {
     saving.value = false
   }
 }
 
-async function confirmDelete() {
-  if (!deleteTarget.value) return
-  deleting.value = true
+async function bulkDelete(ids: string[]) {
   try {
-    await $fetch(`/api/categories/${deleteTarget.value.id}`, { method: 'DELETE' })
-    toast.add({ title: `"${deleteTarget.value.name}" deleted.`, color: 'success', icon: 'i-lucide-check' })
-    confirmOpen.value  = false
-    deleteTarget.value = null
+    await Promise.all(ids.map(id => $fetch(`/api/categories/${id}`, { method: 'DELETE' })))
+    toast.success(`${ids.length} ${ids.length === 1 ? 'category' : 'categories'} deleted`)
     await refresh()
   } catch (e: any) {
-    toast.add({ title: 'Error', description: e?.data?.statusMessage ?? e?.message, color: 'error' })
-  } finally {
-    deleting.value = false
+    toast.error('Delete failed', e?.data?.statusMessage ?? e?.message)
   }
 }
 
 const columns = computed<TableColumn<Category>[]>(() => [
-  { accessorKey: 'name',          header: t('cat.colName'),     enableSorting: true  },
-  { accessorKey: 'product_count', header: t('cat.colProducts'), enableSorting: true  },
-  { id: 'actions',                header: ''                                         },
+  { accessorKey: 'name',          header: t('cat.colName'),     enableSorting: true },
+  { accessorKey: 'product_count', header: t('cat.colProducts'), enableSorting: true },
+  { id: 'actions',                header: ''                                        },
 ])
+
+const exportColumns: ExportColumn[] = [
+  { key: 'name',          label: 'Category' },
+  { key: 'product_count', label: 'Products' },
+]
+const exportData = computed(() =>
+  (categories.value ?? []).map(c => ({ id: c.id, name: c.name, product_count: c.product_count })),
+)
+
+// ── Filter (product status) ───────────────────────────────────
+const filterOpen     = ref(false)
+const productFilter  = ref<'all' | 'has' | 'empty'>('all')
+const activeFilterCount = computed(() => (productFilter.value !== 'all' ? 1 : 0))
+const filteredCategories = computed(() => {
+  const list = categories.value ?? []
+  if (productFilter.value === 'has')   return list.filter(c => c.product_count > 0)
+  if (productFilter.value === 'empty') return list.filter(c => c.product_count === 0)
+  return list
+})
+const productFilterOptions = computed(() => [
+  { label: t('cat.filterAll'),   value: 'all'   },
+  { label: t('cat.filterHas'),   value: 'has'   },
+  { label: t('cat.filterEmpty'), value: 'empty' },
+])
+function resetFilters() { productFilter.value = 'all' }
 </script>
 
 <template>
-  <div class="space-y-6">
+  <section>
+    <AppPageHeader :title="t('cat.title')" :description="t('cat.subtitle')" />
 
-    <!-- ── Header ─────────────────────────────────────────── -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-(--ui-text-highlighted)">{{ t('cat.title') }}</h1>
-        <p class="mt-1 text-sm text-(--ui-text-muted)">{{ t('cat.subtitle') }}</p>
-      </div>
-      <UButton icon="i-lucide-plus" @click="openAdd">{{ t('cat.new') }}</UButton>
-    </div>
+    <AppDataTable
+      :columns="columns"
+      :data="filteredCategories"
+      :create-label="t('cat.new')"
+      search-field="name"
+      filterable
+      :active-filters="activeFilterCount"
+      export-filename="categories"
+      :export-columns="exportColumns"
+      :export-data="exportData"
+      empty-icon="i-lucide-tag"
+      :empty-title="t('cat.empty')"
+      @create="openCreate"
+      @filter="filterOpen = true"
+      @bulk-delete="bulkDelete"
+    >
+      <template #name-cell="{ row }">
+        <span class="font-medium text-(--ui-text-highlighted)">{{ row.original.name }}</span>
+      </template>
 
-    <!-- ── Table ──────────────────────────────────────────── -->
-    <UCard :ui="{ body: 'p-0' }">
-      <UTable :data="categories ?? []" :columns="columns">
+      <template #product_count-cell="{ row }">
+        <UBadge
+          :label="`${row.original.product_count} ${row.original.product_count === 1 ? 'product' : 'products'}`"
+          variant="soft"
+          color="neutral"
+        />
+      </template>
 
-        <template #product_count-cell="{ row }">
-          <UBadge
-            :label="`${row.original.product_count} ${row.original.product_count === 1 ? 'product' : 'products'}`"
-            variant="soft"
-            color="neutral"
-          />
-        </template>
+      <template #actions-cell="{ row }">
+        <div class="flex items-center justify-end gap-1">
+          <UTooltip :text="t('action.edit')">
+            <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" @click="openEdit(row.original)" />
+          </UTooltip>
+          <UTooltip :text="t('action.delete')">
+            <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" @click="bulkDelete([row.original.id])" />
+          </UTooltip>
+        </div>
+      </template>
 
-        <template #actions-cell="{ row }">
-          <div class="flex items-center justify-end gap-1">
-            <UButton
-              icon="i-lucide-pencil"
-              variant="ghost"
-              color="neutral"
-              size="xs"
-              @click="openEdit(row.original)"
-            />
-            <UButton
-              icon="i-lucide-trash-2"
-              variant="ghost"
-              color="error"
-              size="xs"
-              @click="askDelete(row.original)"
-            />
-          </div>
-        </template>
+    </AppDataTable>
 
-        <template #empty>
-          <div class="py-12 text-center text-(--ui-text-muted) text-sm">{{ t('cat.empty') }}</div>
-        </template>
-
-      </UTable>
-    </UCard>
-
-    <!-- ── Add / Edit slideover ───────────────────────────── -->
-    <USlideover
+    <AppFormSlideover
+      v-model="form"
       v-model:open="slideOpen"
-      :title="editing ? t('cat.editTitle') : t('cat.newTitle')"
+      :title="editing ? editing.name : t('cat.newTitle')"
+      :fields="FIELDS"
+      :loading="saving"
+      :save-label="editing ? t('cat.saveChanges') : t('cat.create')"
+      @save="save"
+    />
+
+    <!-- Product-status filter slideover -->
+    <AppSlideover
+      v-model:open="filterOpen"
+      :title="t('cat.filter')"
+      :description="t('cat.filterHint')"
+      :submit-label="t('action.apply')"
+      :cancel-label="t('action.reset')"
+      @submit="filterOpen = false"
+      @cancel="resetFilters"
     >
-      <template #body>
-        <div class="p-4 space-y-4">
-          <UFormField :label="t('cat.name')">
-            <UInput
-              v-model="formName"
-              placeholder="e.g. Trading Cards"
-              class="w-full"
-              autofocus
-              @keydown.enter="submit"
-            />
-          </UFormField>
-        </div>
-      </template>
-
-      <template #footer>
-        <div class="flex gap-2 p-4">
-          <UButton class="flex-1" :loading="saving" @click="submit">
-            {{ editing ? t('cat.saveChanges') : t('cat.create') }}
-          </UButton>
-          <UButton variant="outline" color="neutral" @click="slideOpen = false">
-            {{ t('action.cancel') }}
-          </UButton>
-        </div>
-      </template>
-    </USlideover>
-
-    <!-- ── Delete confirmation modal ─────────────────────── -->
-    <UModal
-      v-model:open="confirmOpen"
-      :title="t('cat.deleteTitle')"
-    >
-      <template #body>
-        <div class="p-4 space-y-3">
-          <p class="text-sm text-(--ui-text-muted)">
-            {{ t('cat.deleteConfirm') }}
-            <strong class="text-(--ui-text-highlighted)">{{ deleteTarget?.name }}</strong>?
-          </p>
-          <UAlert
-            v-if="deleteTarget && deleteTarget.product_count > 0"
-            color="warning"
-            icon="i-lucide-triangle-alert"
-            :description="`${deleteTarget.product_count} ${t('cat.deleteWarning')}`"
-          />
-        </div>
-      </template>
-
-      <template #footer>
-        <div class="flex gap-2 p-4">
-          <UButton color="error" class="flex-1" :loading="deleting" @click="confirmDelete">
-            {{ t('action.delete') }}
-          </UButton>
-          <UButton variant="outline" color="neutral" @click="confirmOpen = false">
-            {{ t('action.cancel') }}
-          </UButton>
-        </div>
-      </template>
-    </UModal>
-
-  </div>
+      <UFormField :label="t('cat.colProducts')">
+        <USelect v-model="productFilter" :items="productFilterOptions" class="w-full" />
+      </UFormField>
+    </AppSlideover>
+  </section>
 </template>

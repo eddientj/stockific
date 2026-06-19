@@ -1,79 +1,59 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { LeadRow } from '~/types'
+import type { LeadRow, ExportColumn } from '~/types'
 
 definePageMeta({ layout: 'admin' })
 
-const { t }  = useLocale()
-const toast  = useAppToast()
-const router = useRouter()
+const { t }   = useLocale()
+const toast   = useAppToast()
 
-const searchQuery = ref('')
-const stageFilter = ref<string | null>(null)
+const { leads, pending, refresh, createLead, updateLead } = useLeads()
+const { fields, stages, stageOptions, blankLead, leadToForm, formToPayload } = useLeadFormFields()
 
-const params = computed(() => {
-  const p: Record<string, string> = {}
-  if (searchQuery.value) p.search   = searchQuery.value
-  if (stageFilter.value) p.stage_id = stageFilter.value
-  return p
+// ── Filters (stage) ───────────────────────────────────────────
+const filters = reactive({ stageIds: [] as string[] })
+const activeFilterCount = computed(() => (filters.stageIds.length > 0 ? 1 : 0))
+
+const filteredLeads = computed(() => {
+  let rows = leads.value ?? []
+  if (filters.stageIds.length > 0)
+    rows = rows.filter(l => l.stage && filters.stageIds.includes(l.stage.id))
+  return rows
 })
 
-const { leads, total, pending, refresh, createLead, updateLead, deleteLead } = useLeads(params)
-const { stages } = usePipelineStages()
-const { companies } = useCompanies()
+function resetFilters() { filters.stageIds = [] }
 
-// ── Slideover ─────────────────────────────────────────────────
+// ── Table columns ─────────────────────────────────────────────
+const columns = computed<TableColumn<LeadRow>[]>(() => [
+  { accessorKey: 'name',       header: t('lead.colName'),    enableSorting: true  },
+  { accessorKey: 'stage',      header: t('lead.colStage'),   enableSorting: false },
+  { accessorKey: 'company',    header: t('lead.colCompany'), enableSorting: false },
+  { accessorKey: 'value',      header: t('lead.colValue'),   enableSorting: true  },
+  { accessorKey: 'created_at', header: t('lead.colDate'),    enableSorting: true  },
+  { id: 'actions',             header: ''                    },
+])
+
+// ── Create / edit slideover (AppFormSlideover) ────────────────
 const slideOpen = ref(false)
 const editing   = ref<LeadRow | null>(null)
 const saving    = ref(false)
+const form      = ref<Record<string, any>>(blankLead())
 
-const form = ref({
-  name: '', email: '', phone: '', source: '', notes: '',
-  value: '' as string | number,
-  stage_id: null as string | null,
-  company_id: null as string | null,
-})
-
-function openNew()               { editing.value = null; slideOpen.value = true }
-function openEdit(l: LeadRow)    { editing.value = l;    slideOpen.value = true }
+function openNew()            { editing.value = null; slideOpen.value = true }
+function openEdit(l: LeadRow) { editing.value = l;    slideOpen.value = true }
 
 watch(slideOpen, (v) => {
   if (!v) return
-  const l = editing.value
-  form.value = {
-    name:       l?.name       ?? '',
-    email:      l?.email      ?? '',
-    phone:      l?.phone      ?? '',
-    source:     l?.source     ?? '',
-    notes:      l?.notes      ?? '',
-    value:      l?.value      ?? '',
-    stage_id:   l?.stage?.id  ?? null,
-    company_id: l?.company?.id ?? null,
-  }
+  form.value = editing.value ? leadToForm(editing.value) : blankLead()
 })
 
 async function save() {
-  if (!form.value.name.trim()) {
-    toast.error('Name is required')
-    return
-  }
+  if (!String(form.value.name ?? '').trim()) { toast.error('Name is required'); return }
   saving.value = true
   try {
-    const payload = {
-      name:       form.value.name.trim(),
-      email:      form.value.email      || null,
-      phone:      form.value.phone      || null,
-      source:     form.value.source     || null,
-      notes:      form.value.notes      || null,
-      value:      form.value.value !== '' ? Number(form.value.value) : null,
-      stage_id:   form.value.stage_id   || null,
-      company_id: form.value.company_id || null,
-    }
-    if (editing.value) {
-      await updateLead(editing.value.id, payload)
-    } else {
-      await createLead(payload)
-    }
+    const payload = formToPayload(form.value)
+    if (editing.value) await updateLead(editing.value.id, payload)
+    else               await createLead(payload)
     slideOpen.value = false
   } catch (e: any) {
     toast.error('Failed to save', e?.data?.statusMessage ?? e?.message)
@@ -82,75 +62,125 @@ async function save() {
   }
 }
 
-// ── Stage options for filter & form ──────────────────────────
-const stageOptions = computed(() =>
-  (stages.value ?? []).map(s => ({ label: s.name, value: s.id }))
-)
-
-const companyOptions = computed(() =>
-  (companies.value ?? []).map(c => ({ label: c.name, value: c.id }))
-)
-
-// ── Table columns ─────────────────────────────────────────────
-const columns = computed<TableColumn<LeadRow>[]>(() => [
-  { accessorKey: 'name',    header: t('lead.colName'),    enableSorting: true  },
-  { accessorKey: 'stage',   header: t('lead.colStage'),   enableSorting: false },
-  { accessorKey: 'company', header: t('lead.colCompany'), enableSorting: false },
-  { accessorKey: 'value',   header: t('lead.colValue'),   enableSorting: true  },
-  { accessorKey: 'created_at', header: t('lead.colDate'), enableSorting: true  },
-  { id: 'actions', header: '' },
-])
-
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+// ── Bulk delete ───────────────────────────────────────────────
+async function bulkDelete(ids: string[]) {
+  try {
+    await Promise.all(ids.map(id => $fetch(`/api/crm/leads/${id}`, { method: 'DELETE' })))
+    toast.success(`${ids.length} leads deleted`)
+    await refresh()
+  } catch (e: any) {
+    toast.error('Bulk delete failed', e?.data?.statusMessage ?? e?.message)
+  }
 }
 
-function fmtValue(v: number | null) {
-  if (v == null) return '—'
-  return `RM ${v.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+// ── Bulk edit (move stage) ────────────────────────────────────
+const NO_CHANGE     = '__nochange__'
+const bulkEditOpen  = ref(false)
+const bulkEditStep  = ref<'edit' | 'confirm'>('edit')
+const bulkEditIds   = ref<string[]>([])
+const bulkStage     = ref<string>(NO_CHANGE)
+
+function openBulkEdit(ids: string[]) {
+  bulkEditIds.value = ids
+  bulkStage.value   = NO_CHANGE
+  bulkEditStep.value = 'edit'
+  bulkEditOpen.value = true
 }
+
+const bulkStageLabel = computed(() => {
+  if (bulkStage.value === NO_CHANGE) return null
+  if (bulkStage.value === 'null')    return '— None —'
+  return (stages.value ?? []).find(s => s.id === bulkStage.value)?.name ?? bulkStage.value
+})
+
+function bulkRequestConfirm() {
+  if (bulkStage.value === NO_CHANGE) {
+    toast.add({ title: 'No changes selected', color: 'warning' })
+    return
+  }
+  bulkEditStep.value = 'confirm'
+}
+
+async function bulkDoConfirm() {
+  const stage_id = bulkStage.value === 'null' ? null : bulkStage.value
+  try {
+    await Promise.all(bulkEditIds.value.map(id =>
+      $fetch(`/api/crm/leads/${id}`, { method: 'PATCH', body: { stage_id } }),
+    ))
+    toast.success(`${bulkEditIds.value.length} leads updated`)
+    bulkEditOpen.value = false
+    await refresh()
+  } catch (e: any) {
+    toast.error('Bulk edit failed', e?.data?.statusMessage ?? e?.message)
+  }
+}
+
+// ── Filter slideover ──────────────────────────────────────────
+const filterSlideoverOpen = ref(false)
+
+function handleImport(rows: Record<string, unknown>[]) {
+  toast.add({ title: `${rows.length} rows read`, description: 'Lead import is not yet implemented.', color: 'info' })
+}
+
+// ── Export ────────────────────────────────────────────────────
+const exportColumns: ExportColumn[] = [
+  { key: 'name',       label: 'Name'       },
+  { key: 'email',      label: 'Email'      },
+  { key: 'phone',      label: 'Phone'      },
+  { key: 'stage',      label: 'Stage'      },
+  { key: 'company',    label: 'Company'    },
+  { key: 'value',      label: 'Value (RM)' },
+  { key: 'source',     label: 'Source'     },
+  { key: 'created_at', label: 'Created'    },
+]
+const exportData = computed(() =>
+  (leads.value ?? []).map(l => ({
+    id:         l.id,
+    name:       l.name,
+    email:      l.email ?? '',
+    phone:      l.phone ?? '',
+    stage:      l.stage?.name ?? '',
+    company:    l.company?.name ?? '',
+    value:      l.value ?? '',
+    source:     l.source ?? '',
+    created_at: l.created_at?.slice(0, 10) ?? '',
+  })),
+)
+
+// ── Helpers ───────────────────────────────────────────────────
+const fmtDate  = (d: string) => new Date(d).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+const fmtValue = (v: number | null) => v == null ? '—' : `RM ${v.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 </script>
 
 <template>
   <section>
-    <div class="flex items-center justify-between mb-6">
-      <AppPageHeader :title="t('lead.title')" :description="t('lead.subtitle')" class="mb-0" />
-      <div class="flex items-center gap-2">
-        <UButton variant="outline" color="neutral" icon="i-lucide-kanban" to="/admin/leads/pipeline">
-          {{ t('lead.pipeline') }}
-        </UButton>
-        <UButton icon="i-lucide-plus" @click="openNew">{{ t('lead.new') }}</UButton>
-      </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="flex items-center gap-3 mb-4">
-      <UInput v-model="searchQuery" icon="i-lucide-search" :placeholder="t('action.search')" class="w-64" />
-      <USelectMenu
-        v-model="stageFilter"
-        :items="[{ label: 'All stages', value: null }, ...stageOptions]"
-        value-key="value"
-        placeholder="All stages"
-        class="w-44"
-      />
+    <div class="flex items-center justify-between gap-4">
+      <AppPageHeader :title="t('lead.title')" :description="t('lead.subtitle')" />
+      <UButton variant="outline" color="neutral" icon="i-lucide-kanban" to="/admin/leads/pipeline">
+        {{ t('lead.pipeline') }}
+      </UButton>
     </div>
 
     <AppDataTable
       :columns="columns"
-      :data="leads"
+      :data="filteredLeads"
       :loading="pending"
       :create-label="t('lead.new')"
+      search-field="name"
+      filterable
+      :active-filters="activeFilterCount"
+      export-filename="leads"
+      :export-columns="exportColumns"
+      :export-data="exportData"
+      empty-icon="i-lucide-users"
+      :empty-title="t('lead.noLeads')"
+      :empty-hint="t('lead.noLeadsHint')"
       @create="openNew"
+      @filter="filterSlideoverOpen = true"
+      @bulk-delete="bulkDelete"
+      @bulk-edit="openBulkEdit"
+      @import="handleImport"
     >
-      <template #empty>
-        <div class="flex flex-col items-center py-16 gap-3">
-          <UIcon name="i-lucide-users" class="size-10 text-(--ui-text-muted)" />
-          <p class="font-medium text-(--ui-text-highlighted)">{{ t('lead.noLeads') }}</p>
-          <p class="text-sm text-(--ui-text-muted)">{{ t('lead.noLeadsHint') }}</p>
-          <UButton icon="i-lucide-plus" size="sm" class="mt-1" @click="openNew">{{ t('lead.new') }}</UButton>
-        </div>
-      </template>
-
       <template #name-cell="{ row }">
         <NuxtLink
           :to="`/admin/leads/${row.original.id}`"
@@ -181,71 +211,100 @@ function fmtValue(v: number | null) {
 
       <template #actions-cell="{ row }">
         <div class="flex justify-end gap-1">
-          <UButton icon="i-lucide-arrow-right" variant="ghost" color="neutral" size="sm"
-            :to="`/admin/leads/${row.original.id}`" />
-          <UButton icon="i-lucide-pencil"      variant="ghost" color="neutral" size="sm"
-            @click="openEdit(row.original)" />
-          <UButton icon="i-lucide-trash-2"     variant="ghost" color="error"   size="sm"
-            @click="deleteLead(row.original.id, row.original.name)" />
+          <UTooltip :text="t('action.edit')">
+            <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" @click="openEdit(row.original)" />
+          </UTooltip>
+          <UTooltip :text="t('action.delete')">
+            <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm"
+              @click="bulkDelete([row.original.id])" />
+          </UTooltip>
         </div>
       </template>
     </AppDataTable>
 
-    <!-- Lead form slideover -->
-    <USlideover v-model:open="slideOpen" :title="editing ? editing.name : t('lead.new')">
-      <template #body>
-        <div class="space-y-4 p-4">
-          <UFormField :label="t('field.name')" required>
-            <UInput v-model="form.name" placeholder="Ahmad Razif" class="w-full" />
-          </UFormField>
-          <div class="grid grid-cols-2 gap-3">
-            <UFormField :label="t('field.email')">
-              <UInput v-model="form.email" type="email" placeholder="email@example.com" class="w-full" />
-            </UFormField>
-            <UFormField :label="t('field.phone')">
-              <UInput v-model="form.phone" placeholder="+60 12 345 6789" class="w-full" />
-            </UFormField>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <UFormField :label="t('lead.stage')">
-              <USelectMenu
-                v-model="form.stage_id"
-                :items="stageOptions"
-                value-key="value"
-                placeholder="Select stage…"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField :label="t('lead.value')">
-              <UInput v-model="form.value" type="number" min="0" placeholder="0.00" class="w-full" />
-            </UFormField>
-          </div>
-          <UFormField :label="t('lead.company')">
-            <USelectMenu
-              v-model="form.company_id"
-              :items="companyOptions"
-              value-key="value"
-              placeholder="Select company…"
-              searchable
-              class="w-full"
-            />
-          </UFormField>
-          <UFormField :label="t('lead.source')">
-            <UInput v-model="form.source" placeholder="Referral, Website, Cold call…" class="w-full" />
-          </UFormField>
-          <UFormField :label="t('field.notes')">
-            <UTextarea v-model="form.notes" :rows="3" placeholder="Any notes about this lead…" class="w-full" />
-          </UFormField>
+    <!-- Create / edit form -->
+    <AppFormSlideover
+      v-model="form"
+      v-model:open="slideOpen"
+      :title="editing ? editing.name : t('lead.new')"
+      :fields="fields"
+      :loading="saving"
+      :save-label="editing ? t('action.save') : t('lead.create')"
+      @save="save"
+    />
+
+    <!-- Filter slideover -->
+    <AppSlideover
+      v-model:open="filterSlideoverOpen"
+      :title="t('lead.filter')"
+      :description="t('lead.filterHint')"
+      :submit-label="t('action.apply')"
+      :cancel-label="t('action.reset')"
+      @submit="filterSlideoverOpen = false"
+      @cancel="resetFilters"
+    >
+      <UFormField :label="t('lead.colStage')">
+        <USelectMenu
+          v-model="filters.stageIds"
+          :items="stageOptions"
+          multiple
+          value-key="value"
+          :placeholder="t('lead.colStage')"
+          class="w-full"
+        />
+      </UFormField>
+    </AppSlideover>
+
+    <!-- Bulk edit — step 1 -->
+    <UModal :open="bulkEditOpen && bulkEditStep === 'edit'" @update:open="bulkEditOpen = $event">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-pencil" class="size-5 text-brand-500" />
+          <h3 class="text-base font-semibold text-(--ui-text-highlighted)">{{ t('lead.bulkMove', { n: bulkEditIds.length }) }}</h3>
         </div>
+      </template>
+      <template #body>
+        <p class="text-sm text-(--ui-text-muted) mb-5">{{ t('lead.bulkMoveHint') }}</p>
+        <UFormField :label="t('lead.stage')">
+          <USelect
+            v-model="bulkStage"
+            :items="[
+              { label: t('lead.noChange'), value: NO_CHANGE },
+              { label: '— None —',         value: 'null'    },
+              ...stageOptions,
+            ]"
+            class="w-full"
+          />
+        </UFormField>
       </template>
       <template #footer>
-        <div class="flex gap-2 p-4">
-          <UButton :loading="saving" @click="save">
-            {{ editing ? t('action.save') : t('lead.new') }}
-          </UButton>
-          <UButton variant="outline" color="neutral" @click="slideOpen = false">{{ t('action.cancel') }}</UButton>
+        <div class="flex gap-2">
+          <UButton icon="i-lucide-arrow-right" @click="bulkRequestConfirm">{{ t('table.editSelected') }}</UButton>
+          <UButton variant="outline" color="neutral" @click="bulkEditOpen = false">{{ t('action.cancel') }}</UButton>
         </div>
       </template>
-    </USlideover>
+    </UModal>
+
+    <!-- Bulk edit — step 2 confirm -->
+    <UModal :open="bulkEditOpen && bulkEditStep === 'confirm'" @update:open="bulkEditOpen = $event">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-triangle-alert" class="size-5 text-warning-500" />
+          <h3 class="text-base font-semibold text-(--ui-text-highlighted)">{{ t('lead.confirmMove') }}</h3>
+        </div>
+      </template>
+      <template #body>
+        <p class="text-sm text-(--ui-text-muted)">
+          Move <span class="font-semibold text-(--ui-text-highlighted)">{{ bulkEditIds.length }}</span> leads to
+          <span class="font-semibold text-(--ui-text-highlighted)">{{ bulkStageLabel }}</span>?
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex gap-2">
+          <UButton icon="i-lucide-check" @click="bulkDoConfirm">{{ t('action.confirm') }}</UButton>
+          <UButton variant="outline" color="neutral" @click="bulkEditStep = 'edit'">{{ t('action.back') }}</UButton>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
