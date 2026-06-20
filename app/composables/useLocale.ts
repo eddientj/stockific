@@ -414,6 +414,9 @@ const translations: Record<Locale, Record<string, string>> = {
     'stage.won':         'Won',
     'stage.lost':        'Lost',
     'stage.noStages':    'No stages yet. Add one to start.',
+    'stage.deleteTitle':   'Delete stage?',
+    'stage.deleteConfirm': 'Delete "{name}"? This cannot be undone.',
+    'stage.deleteWarn':    'All leads in this stage will become unassigned.',
     // ── Language ───────────────────────────
     'lang.label': 'Language',
     'lang.en':    'English',
@@ -833,6 +836,9 @@ const translations: Record<Locale, Record<string, string>> = {
     'stage.won':         'Menang',
     'stage.lost':        'Kalah',
     'stage.noStages':    'Tiada peringkat lagi. Tambah satu untuk bermula.',
+    'stage.deleteTitle':   'Padam peringkat?',
+    'stage.deleteConfirm': 'Padam "{name}"? Tindakan ini tidak boleh dibatalkan.',
+    'stage.deleteWarn':    'Semua petunjuk dalam peringkat ini akan menjadi tidak ditetapkan.',
     // ── Language ───────────────────────────
     'lang.label': 'Bahasa',
     'lang.en':    'English',

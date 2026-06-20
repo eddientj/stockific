@@ -165,7 +165,7 @@ const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft', sent: 'Sent', paid: 'Paid', overdue: 'Overdue', cancelled: 'Cancelled', refunded: 'Refunded',
 }
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'text-(--ui-text-muted)', sent: 'text-sky-500', paid: 'text-indigo-500',
+  draft: 'text-(--ui-text-muted)', sent: 'text-sky-500', paid: 'text-brand-500',
   overdue: 'text-red-500', cancelled: 'text-(--ui-text-muted)', refunded: 'text-orange-500',
 }
 
@@ -511,13 +511,13 @@ const METHOD_ICONS: Record<string, string> = {
                   @input="(e: Event) => { const v = parseFloat((e.target as HTMLInputElement).value); if (!isNaN(v)) discount = Math.min(99999, Math.max(0, +v.toFixed(2))) }"
                 />
               </div>
-              <span :class="discount > 0 ? 'text-indigo-500' : 'text-(--ui-text-muted)'" class="text-xs">
+              <span :class="discount > 0 ? 'text-brand-500' : 'text-(--ui-text-muted)'" class="text-xs">
                 {{ discount > 0 ? `-RM ${discount.toFixed(2)}` : '—' }}
               </span>
             </div>
             <div class="flex justify-between font-semibold pt-1 border-t border-(--ui-border)">
               <span class="text-(--ui-text-highlighted)">{{ t('invf.total') }}</span>
-              <span class="text-indigo-500 text-base">RM {{ total.toFixed(2) }}</span>
+              <span class="text-brand-500 text-base">RM {{ total.toFixed(2) }}</span>
             </div>
           </div>
         </UCard>
@@ -540,7 +540,7 @@ const METHOD_ICONS: Record<string, string> = {
           <template #header>
             <div class="flex items-center justify-between">
               <p class="font-semibold text-(--ui-text-highlighted)">{{ t('invf.payments') }}</p>
-              <span class="text-xs font-mono font-medium text-indigo-500">
+              <span class="text-xs font-mono font-medium text-brand-500">
                 RM {{ totalPaid.toFixed(2) }} {{ t('invf.paid') }}
               </span>
             </div>
@@ -578,7 +578,7 @@ const METHOD_ICONS: Record<string, string> = {
                   <p v-if="p.notes" class="text-xs text-(--ui-text-muted) italic mt-0.5">{{ p.notes }}</p>
                 </div>
               </div>
-              <span class="font-mono font-semibold text-sm text-indigo-500 shrink-0">
+              <span class="font-mono font-semibold text-sm text-brand-500 shrink-0">
                 RM {{ Number(p.amount).toFixed(2) }}
               </span>
             </div>
@@ -655,9 +655,9 @@ const METHOD_ICONS: Record<string, string> = {
     line-height: 1.5;
   }
 
-  /* indigo colour utilities — explicit override for print */
-  #invoice-print .bg-indigo-500   { background-color: #6366F1 !important; }
-  #invoice-print .text-indigo-500 { color: #6366F1 !important; }
+  /* brand colour utilities — explicit override for print */
+  #invoice-print .bg-brand-500   { background-color: var(--color-brand-500) !important; }
+  #invoice-print .text-brand-500 { color: var(--color-brand-500) !important; }
 
   /* Bill-To / dates meta box */
   #invoice-print .invoice-meta {

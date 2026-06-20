@@ -39,7 +39,7 @@ const rm = (n: number) => `RM ${Number(n).toFixed(2)}`
           <div class="flex items-center gap-2 mb-1">
             <span
               class="w-[3px] h-4 rounded-full block"
-              :style="{ background: settings?.accent_color ?? '#6366F1' }"
+              :style="{ background: settings?.accent_color ?? BRAND_HEX }"
             />
             <span class="font-bold text-(--ui-text-highlighted)">{{ settings?.company_name ?? 'My Business' }}</span>
           </div>
@@ -56,7 +56,7 @@ const rm = (n: number) => `RM ${Number(n).toFixed(2)}`
       </div>
       <div class="text-right">
         <p class="text-2xl font-bold text-(--ui-text-highlighted)">INVOICE</p>
-        <p class="text-xs font-mono mt-0.5" :style="{ color: settings?.accent_color ?? '#6366F1' }">
+        <p class="text-xs font-mono mt-0.5" :style="{ color: settings?.accent_color ?? BRAND_HEX }">
           {{ isNew ? (settings?.invoice_prefix ?? 'INV') + '-' + new Date().getFullYear() + '-XXXX' : invoiceNumber }}
         </p>
       </div>
@@ -129,11 +129,11 @@ const rm = (n: number) => `RM ${Number(n).toFixed(2)}`
       </div>
       <div v-if="discount > 0" class="flex justify-between text-xs">
         <span class="text-(--ui-text-muted)">Discount</span>
-        <span :style="{ color: settings?.accent_color ?? '#6366F1' }">-{{ rm(discount) }}</span>
+        <span :style="{ color: settings?.accent_color ?? BRAND_HEX }">-{{ rm(discount) }}</span>
       </div>
       <div class="flex justify-between font-bold border-t border-(--ui-border) pt-1.5 mt-1.5">
         <span class="text-(--ui-text-highlighted)">Total</span>
-        <span :style="{ color: settings?.accent_color ?? '#6366F1' }">{{ rm(total) }}</span>
+        <span :style="{ color: settings?.accent_color ?? BRAND_HEX }">{{ rm(total) }}</span>
       </div>
     </div>
 

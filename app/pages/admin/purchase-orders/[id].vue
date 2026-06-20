@@ -110,7 +110,7 @@ const productOptions = computed(() =>
     <div class="flex items-start justify-between">
       <div>
         <div class="flex items-center gap-3 mb-1">
-          <NuxtLink to="/admin/purchase-orders" class="text-sm text-(--ui-text-muted) hover:text-indigo-500">
+          <NuxtLink to="/admin/purchase-orders" class="text-sm text-(--ui-text-muted) hover:text-brand-500">
             ← Purchase Orders
           </NuxtLink>
         </div>

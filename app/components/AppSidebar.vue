@@ -87,11 +87,9 @@ onUnmounted(() => {
   >
     <!-- Logo -->
     <div class="h-14 flex items-center border-b border-(--ui-border) px-3 shrink-0">
-      <NuxtLink to="/" class="flex items-center gap-2.5 overflow-hidden no-underline min-w-0">
-        <span class="w-[3px] h-5 rounded-full shrink-0 block" style="background:var(--color-brand-500)" />
-        <span v-if="!collapsed" class="text-sm font-semibold tracking-tight text-(--ui-text-highlighted) truncate">
-          Stockific
-        </span>
+      <NuxtLink to="/" class="flex items-center overflow-hidden no-underline min-w-0">
+        <img v-if="collapsed" src="/logo-icon.png" alt="Stockific" class="h-7 w-7 object-contain shrink-0" />
+        <img v-else src="/logo.png" alt="Stockific" class="h-7 w-auto object-contain" />
       </NuxtLink>
     </div>
 

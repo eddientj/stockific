@@ -108,7 +108,7 @@ async function onSubmit() {
     </div>
 
     <div v-else class="py-4 text-center space-y-2">
-      <UIcon name="i-lucide-mail-check" class="size-10 text-indigo-500 mx-auto" />
+      <UIcon name="i-lucide-mail-check" class="size-10 text-brand-500 mx-auto" />
       <p class="font-medium text-(--ui-text-highlighted)">Check your email</p>
       <p class="text-sm text-(--ui-text-muted)">
         We sent a confirmation link to <strong>{{ form.email }}</strong>. Click it to activate your account.

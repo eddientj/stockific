@@ -143,14 +143,14 @@ function onNumberInput(e: Event) {
     <div v-else-if="field.type === 'color'" class="flex items-center gap-3">
       <input
         type="color"
-        :value="modelValue ?? '#6366F1'"
+        :value="modelValue ?? BRAND_HEX"
         :disabled="field.disabled"
         class="h-9 w-14 cursor-pointer rounded border border-(--ui-border) bg-(--ui-bg) p-0.5"
         @input="update(($event.target as HTMLInputElement).value)"
       />
       <UInput
-        :value="modelValue ?? '#6366F1'"
-        placeholder="#6366F1"
+        :value="modelValue ?? BRAND_HEX"
+        :placeholder="BRAND_HEX"
         :disabled="field.disabled"
         class="flex-1 font-mono"
         @input="update(($event.target as HTMLInputElement).value)"

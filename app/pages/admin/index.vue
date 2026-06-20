@@ -49,13 +49,13 @@ const totalRevenue  = computed(() => dash.value?.currentRevenue ?? 0)
 const revenueChange = computed(() => dash.value?.revenueChange  ?? 0)
 
 const ORDER_STATUS_CFG: Record<string, { bg: string }> = {
-  Delivered: { bg: 'bg-indigo-500'   },
+  Delivered: { bg: 'bg-brand-500'    },
   Shipped:   { bg: 'bg-sky-500'    },
   Confirmed: { bg: 'bg-violet-500' },
   Pending:   { bg: 'bg-amber-500'  },
 }
 const ORDER_STATUS_DOT: Record<string, string> = {
-  Delivered: 'bg-indigo-400',
+  Delivered: 'bg-brand-400',
   Shipped:   'bg-sky-400',
   Confirmed: 'bg-violet-400',
   Pending:   'bg-amber-400',
@@ -144,8 +144,8 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
       <!-- Revenue -->
       <UCard class="stat-card">
         <div class="flex items-start justify-between mb-3">
-          <div class="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-            <UIcon name="i-lucide-circle-dollar-sign" class="size-4 text-indigo-500" />
+          <div class="w-9 h-9 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center">
+            <UIcon name="i-lucide-circle-dollar-sign" class="size-4 text-brand-500" />
           </div>
           <span class="text-xs font-medium text-emerald-500 flex items-center gap-0.5">
             <UIcon name="i-lucide-trending-up" class="size-3" />
@@ -215,7 +215,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
               <p class="text-xs text-(--ui-text-muted)">{{ t('dash.dailyRevenue') }}</p>
             </div>
             <div class="text-right">
-              <p class="text-lg font-bold text-indigo-500">{{ rm(totalRevenue) }}</p>
+              <p class="text-lg font-bold text-brand-500">{{ rm(totalRevenue) }}</p>
 
               <p class="text-xs" :class="revenueChange >= 0 ? 'text-emerald-500' : 'text-red-400'">
               {{ t('dash.vsPrev') }}
@@ -232,8 +232,8 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
           >
             <defs>
               <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stop-color="#6366F1" stop-opacity="0.25" />
-                <stop offset="100%" stop-color="#6366F1" stop-opacity="0"    />
+                <stop offset="0%"   stop-color="var(--color-brand-500)" stop-opacity="0.25" />
+                <stop offset="100%" stop-color="var(--color-brand-500)" stop-opacity="0"    />
               </linearGradient>
             </defs>
             <!-- Horizontal grid lines -->
@@ -242,7 +242,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
             <!-- Fill -->
             <path :d="fillPath || ''" fill="url(#revGrad)" />
             <!-- Line -->
-            <polyline :points="polyline || ''" fill="none" stroke="#6366F1" stroke-width="2"
+            <polyline :points="polyline || ''" fill="none" stroke="var(--color-brand-500)" stroke-width="2"
               stroke-linejoin="round" stroke-linecap="round" />
           </svg>
 
@@ -302,7 +302,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
 
         <NuxtLink
           to="/admin/orders"
-          class="block mt-5 text-center text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors"
+          class="block mt-5 text-center text-xs text-(--ui-text-muted) hover:text-brand-500 transition-colors"
         >
           {{ t('dash.viewAllOrders') }}
         </NuxtLink>
@@ -329,7 +329,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
 
         <div v-if="pipeline.length === 0" class="py-8 text-center text-sm text-(--ui-text-muted)">
           No pipeline stages yet.
-          <NuxtLink to="/admin/leads/pipeline" class="text-indigo-500 hover:underline ml-1">Set up stages →</NuxtLink>
+          <NuxtLink to="/admin/leads/pipeline" class="text-brand-500 hover:underline ml-1">Set up stages →</NuxtLink>
         </div>
 
         <div v-else class="space-y-3">
@@ -361,7 +361,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
         </div>
 
         <NuxtLink to="/admin/leads/pipeline"
-          class="block mt-4 text-center text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors">
+          class="block mt-4 text-center text-xs text-(--ui-text-muted) hover:text-brand-500 transition-colors">
           Open pipeline →
         </NuxtLink>
       </UCard>
@@ -424,7 +424,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
               <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.recentOrders') }}</p>
               <p class="text-xs text-(--ui-text-muted)">{{ t('dash.latestActivity') }}</p>
             </div>
-            <NuxtLink to="/admin/orders" class="text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors">
+            <NuxtLink to="/admin/orders" class="text-xs text-(--ui-text-muted) hover:text-brand-500 transition-colors">
               {{ t('dash.viewAll') }}
             </NuxtLink>
           </div>
@@ -462,7 +462,7 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
               <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.lowStockTitle') }}</p>
               <p class="text-xs text-(--ui-text-muted)">{{ t('dash.needsRestock') }}</p>
             </div>
-            <NuxtLink to="/admin/products" class="text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors">
+            <NuxtLink to="/admin/products" class="text-xs text-(--ui-text-muted) hover:text-brand-500 transition-colors">
               {{ t('dash.viewAll') }}
             </NuxtLink>
           </div>

@@ -115,7 +115,7 @@ function resetFilters() { statusFilter.value = 'all' }
     >
       <template #po_number-cell="{ row }">
         <NuxtLink :to="`/admin/purchase-orders/${row.original.id}`"
-          class="font-mono font-semibold text-indigo-500 hover:underline">
+          class="font-mono font-semibold text-brand-500 hover:underline">
           {{ row.original.po_number }}
         </NuxtLink>
       </template>

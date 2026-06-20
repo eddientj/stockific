@@ -129,7 +129,7 @@ const columns: TableColumn<SupplierRow>[] = [
       </template>
       <template #email-cell="{ row }">
         <a v-if="row.original.email" :href="`mailto:${row.original.email}`"
-          class="text-(--ui-text-muted) hover:text-indigo-500 text-sm">{{ row.original.email }}</a>
+          class="text-(--ui-text-muted) hover:text-brand-500 text-sm">{{ row.original.email }}</a>
         <span v-else class="text-(--ui-text-muted)">—</span>
       </template>
       <template #phone-cell="{ row }">{{ row.original.phone || '—' }}</template>

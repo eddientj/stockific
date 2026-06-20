@@ -94,9 +94,8 @@ const stats = [
       :class="scrolled ? 'bg-[#0a1212]/90 backdrop-blur-md border-b border-white/5 shadow-xl' : 'bg-transparent'"
     >
       <div class="max-w-7xl mx-auto px-6 h-16 flex items-center gap-8">
-        <NuxtLink to="/" class="flex items-center gap-2.5 shrink-0 no-underline">
-          <span class="w-[3px] h-5 rounded-full block bg-indigo-500" />
-          <span class="text-sm font-bold tracking-tight text-white">Stockific</span>
+        <NuxtLink to="/" class="shrink-0 no-underline">
+          <img src="/logo.png" alt="Stockific" class="h-7 w-auto" />
         </NuxtLink>
 
         <nav class="hidden md:flex items-center gap-1 flex-1">
@@ -111,7 +110,7 @@ const stats = [
           </NuxtLink>
           <NuxtLink
             to="/admin/products"
-            class="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/30"
+            class="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-sm font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-brand-500/30"
           >
             Get started →
           </NuxtLink>
@@ -122,8 +121,8 @@ const stats = [
     <!-- ───────────────── HERO ───────────────────────── -->
     <section class="hero-section relative min-h-screen flex items-center pt-16 overflow-hidden">
       <div class="absolute inset-0 pointer-events-none">
-        <div class="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-500/8 rounded-full blur-3xl" />
-        <div class="absolute bottom-1/3 right-1/5 w-96 h-96 bg-indigo-400/5 rounded-full blur-3xl" />
+        <div class="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-brand-500/8 rounded-full blur-3xl" />
+        <div class="absolute bottom-1/3 right-1/5 w-96 h-96 bg-brand-400/5 rounded-full blur-3xl" />
         <div class="dot-grid absolute inset-0" />
       </div>
 
@@ -131,14 +130,14 @@ const stats = [
 
         <!-- Copy -->
         <div>
-          <div class="hero-badge inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 mb-6">
-            <div class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-            <span class="text-indigo-300 text-xs font-medium">Built for modern retail</span>
+          <div class="hero-badge inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 mb-6">
+            <div class="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
+            <span class="text-brand-300 text-xs font-medium">Built for modern retail</span>
           </div>
 
           <h1 class="hero-title text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight mb-6">
             Your store.<br />
-            <span class="text-indigo-400">Under complete</span><br />
+            <span class="text-brand-400">Under complete</span><br />
             control.
           </h1>
 
@@ -149,7 +148,7 @@ const stats = [
           <div class="hero-ctas flex flex-wrap gap-4">
             <NuxtLink
               to="/admin/products"
-              class="px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/25 hover:-translate-y-0.5 active:translate-y-0"
+              class="px-6 py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-semibold transition-all duration-200 hover:shadow-xl hover:shadow-brand-500/25 hover:-translate-y-0.5 active:translate-y-0"
             >
               Start for free
             </NuxtLink>
@@ -165,7 +164,7 @@ const stats = [
         <!-- App preview mockup -->
         <div class="hero-mockup">
           <div class="relative">
-            <div class="absolute -inset-6 bg-indigo-500/5 rounded-3xl blur-2xl" />
+            <div class="absolute -inset-6 bg-brand-500/5 rounded-3xl blur-2xl" />
             <div class="relative rounded-2xl border border-white/10 overflow-hidden shadow-2xl shadow-black/60">
 
               <!-- Browser chrome -->
@@ -183,11 +182,11 @@ const stats = [
               <!-- App top nav -->
               <div class="bg-[#0d1e1e] border-b border-white/5 px-4 py-2.5 flex items-center gap-6">
                 <div class="flex items-center gap-1.5">
-                  <div class="w-1 h-4 rounded-full bg-indigo-500" />
+                  <div class="w-1 h-4 rounded-full bg-brand-500" />
                   <span class="text-xs font-bold text-white">Stockific</span>
                 </div>
                 <div class="flex items-center gap-5">
-                  <span class="text-[11px] font-medium text-indigo-400 border-b border-indigo-500 pb-0.5">Products</span>
+                  <span class="text-[11px] font-medium text-brand-400 border-b border-brand-500 pb-0.5">Products</span>
                   <span class="text-[11px] text-white/25">Orders</span>
                   <span class="text-[11px] text-white/25">Reports</span>
                 </div>
@@ -200,7 +199,7 @@ const stats = [
                   <div class="h-7 w-36 rounded-lg bg-white/5 border border-white/5" />
                   <div class="flex gap-2">
                     <div class="h-7 w-16 rounded-lg bg-white/5 border border-white/5" />
-                    <div class="h-7 w-24 rounded-lg bg-indigo-500/80" />
+                    <div class="h-7 w-24 rounded-lg bg-brand-500/80" />
                   </div>
                 </div>
 
@@ -218,7 +217,7 @@ const stats = [
                     v-for="(p, i) in mockProducts"
                     :key="p.name"
                     class="grid grid-cols-12 gap-2 px-3 py-2 rounded-lg items-center transition-colors"
-                    :class="i === 0 ? 'bg-indigo-500/5 border border-indigo-500/10' : 'bg-white/[0.025]'"
+                    :class="i === 0 ? 'bg-brand-500/5 border border-brand-500/10' : 'bg-white/[0.025]'"
                   >
                     <div class="col-span-5 flex items-center gap-2">
                       <div class="w-6 h-6 rounded-md bg-white/5 shrink-0" />
@@ -233,9 +232,9 @@ const stats = [
                     <div class="col-span-3">
                       <span
                         class="inline-flex items-center gap-1 text-[9px] rounded-full px-2 py-0.5 font-medium"
-                        :class="p.active ? 'bg-indigo-500/15 text-indigo-400' : 'bg-white/5 text-white/25'"
+                        :class="p.active ? 'bg-brand-500/15 text-brand-400' : 'bg-white/5 text-white/25'"
                       >
-                        <span class="w-1 h-1 rounded-full" :class="p.active ? 'bg-indigo-400' : 'bg-white/20'" />
+                        <span class="w-1 h-1 rounded-full" :class="p.active ? 'bg-brand-400' : 'bg-white/20'" />
                         {{ p.active ? 'Listed' : 'Unlisted' }}
                       </span>
                     </div>
@@ -256,7 +255,7 @@ const stats = [
           :class="statsReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'"
         >
           <div v-for="s in stats" :key="s.label" class="text-center">
-            <div class="text-3xl font-bold text-indigo-400 mb-1">{{ s.value }}</div>
+            <div class="text-3xl font-bold text-brand-400 mb-1">{{ s.value }}</div>
             <div class="text-sm text-white/35">{{ s.label }}</div>
           </div>
         </div>
@@ -271,7 +270,7 @@ const stats = [
           class="text-center mb-16 transition-all duration-700"
           :class="featuresReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'"
         >
-          <p class="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-3">Features</p>
+          <p class="text-brand-400 text-xs font-semibold uppercase tracking-widest mb-3">Features</p>
           <h2 class="text-4xl font-bold text-white mb-4">Everything you need to sell smarter</h2>
           <p class="text-white/40 max-w-xl mx-auto">One platform that handles inventory, orders, and analytics — so you can focus on growing your business.</p>
         </div>
@@ -283,10 +282,10 @@ const stats = [
           <div
             v-for="f in features"
             :key="f.title"
-            class="feature-card group p-6 rounded-2xl border border-white/5 bg-white/[0.025] hover:border-indigo-500/25 transition-all duration-300 cursor-default"
+            class="feature-card group p-6 rounded-2xl border border-white/5 bg-white/[0.025] hover:border-brand-500/25 transition-all duration-300 cursor-default"
           >
-            <div class="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors duration-300">
-              <UIcon :name="f.icon" class="size-5 text-indigo-400" />
+            <div class="w-11 h-11 rounded-xl bg-brand-500/10 border border-brand-500/15 flex items-center justify-center mb-4 group-hover:bg-brand-500/20 transition-colors duration-300">
+              <UIcon :name="f.icon" class="size-5 text-brand-400" />
             </div>
             <h3 class="text-white font-semibold mb-2">{{ f.title }}</h3>
             <p class="text-white/40 text-sm leading-relaxed">{{ f.desc }}</p>
@@ -303,7 +302,7 @@ const stats = [
           class="text-center mb-12 transition-all duration-700"
           :class="carouselReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'"
         >
-          <p class="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-3">Any product type</p>
+          <p class="text-brand-400 text-xs font-semibold uppercase tracking-widest mb-3">Any product type</p>
           <h2 class="text-3xl font-bold text-white mb-3">Works with your entire catalogue</h2>
           <p class="text-white/40">From electronics to fashion, food to collectibles — Stockific handles every category with ease.</p>
         </div>
@@ -325,7 +324,7 @@ const stats = [
           class="text-center mb-16 transition-all duration-700"
           :class="stepsReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'"
         >
-          <p class="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-3">How it works</p>
+          <p class="text-brand-400 text-xs font-semibold uppercase tracking-widest mb-3">How it works</p>
           <h2 class="text-4xl font-bold text-white mb-4">Up and running in minutes</h2>
           <p class="text-white/40 max-w-lg mx-auto">No complicated setup. No steep learning curve. A clean tool that works from day one.</p>
         </div>
@@ -339,10 +338,10 @@ const stats = [
             :style="{ transitionDelay: `${i * 120}ms` }"
           >
             <div class="relative inline-block mb-6">
-              <div class="w-20 h-20 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto">
-                <UIcon :name="s.icon" class="size-9 text-indigo-400" />
+              <div class="w-20 h-20 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center mx-auto">
+                <UIcon :name="s.icon" class="size-9 text-brand-400" />
               </div>
-              <div class="absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-indigo-500/40">
+              <div class="absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full bg-brand-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-brand-500/40">
                 {{ s.step }}
               </div>
             </div>
@@ -361,7 +360,7 @@ const stats = [
           class="text-center mb-16 transition-all duration-700"
           :class="pricingReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'"
         >
-          <p class="text-indigo-400 text-xs font-semibold uppercase tracking-widest mb-3">Pricing</p>
+          <p class="text-brand-400 text-xs font-semibold uppercase tracking-widest mb-3">Pricing</p>
           <h2 class="text-4xl font-bold text-white mb-4">Simple, transparent pricing</h2>
           <p class="text-white/40">Start free. Scale when you're ready. No surprises.</p>
         </div>
@@ -375,10 +374,10 @@ const stats = [
             :key="plan.name"
             class="relative rounded-2xl p-7 flex flex-col transition-all duration-300"
             :class="plan.highlight
-              ? 'bg-indigo-500/8 border-2 border-indigo-500/40 hover:border-indigo-500/60 hover:shadow-xl hover:shadow-indigo-500/10'
+              ? 'bg-brand-500/8 border-2 border-brand-500/40 hover:border-brand-500/60 hover:shadow-xl hover:shadow-brand-500/10'
               : 'bg-white/[0.025] border border-white/8 hover:border-white/15'"
           >
-            <div v-if="plan.highlight" class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-indigo-500 text-white text-xs font-bold whitespace-nowrap shadow-lg shadow-indigo-500/30">
+            <div v-if="plan.highlight" class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-brand-500 text-white text-xs font-bold whitespace-nowrap shadow-lg shadow-brand-500/30">
               Most popular
             </div>
 
@@ -386,7 +385,7 @@ const stats = [
             <p class="text-white/35 text-sm mb-6">{{ plan.desc }}</p>
 
             <div class="flex items-baseline gap-1.5 mb-7">
-              <span class="text-4xl font-bold" :class="plan.highlight ? 'text-indigo-400' : 'text-white'">
+              <span class="text-4xl font-bold" :class="plan.highlight ? 'text-brand-400' : 'text-white'">
                 {{ plan.price }}
               </span>
               <span class="text-white/35 text-sm">{{ plan.period }}</span>
@@ -394,7 +393,7 @@ const stats = [
 
             <ul class="space-y-2.5 mb-8 flex-1">
               <li v-for="feat in plan.features" :key="feat" class="flex items-center gap-2.5 text-sm text-white/55">
-                <UIcon name="i-lucide-check" class="size-4 text-indigo-500 shrink-0" />
+                <UIcon name="i-lucide-check" class="size-4 text-brand-500 shrink-0" />
                 {{ feat }}
               </li>
             </ul>
@@ -403,7 +402,7 @@ const stats = [
               to="/admin/products"
               class="block text-center py-3 rounded-xl font-semibold text-sm transition-all duration-200"
               :class="plan.highlight
-                ? 'bg-indigo-500 hover:bg-indigo-400 text-white hover:shadow-lg hover:shadow-indigo-500/25'
+                ? 'bg-brand-500 hover:bg-brand-400 text-white hover:shadow-lg hover:shadow-brand-500/25'
                 : 'border border-white/10 text-white/60 hover:bg-white/5 hover:text-white'"
             >
               {{ plan.cta }}
@@ -422,9 +421,9 @@ const stats = [
           :class="ctaReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
         >
           <div class="relative inline-block mb-8">
-            <div class="absolute inset-0 bg-indigo-500/25 blur-3xl rounded-full scale-[2]" />
-            <div class="relative w-16 h-16 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center mx-auto">
-              <UIcon name="i-lucide-rocket" class="size-8 text-indigo-400" />
+            <div class="absolute inset-0 bg-brand-500/25 blur-3xl rounded-full scale-[2]" />
+            <div class="relative w-16 h-16 rounded-2xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center mx-auto">
+              <UIcon name="i-lucide-rocket" class="size-8 text-brand-400" />
             </div>
           </div>
 
@@ -438,7 +437,7 @@ const stats = [
           <div class="flex flex-wrap justify-center gap-4">
             <NuxtLink
               to="/admin/products"
-              class="px-8 py-4 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-base transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5"
+              class="px-8 py-4 rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-bold text-base transition-all duration-200 hover:shadow-xl hover:shadow-brand-500/30 hover:-translate-y-0.5"
             >
               Get started for free
             </NuxtLink>
@@ -458,7 +457,7 @@ const stats = [
     <footer class="border-t border-white/5 py-10">
       <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-2.5">
-          <span class="w-[3px] h-5 rounded-full bg-indigo-500 block" />
+          <span class="w-[3px] h-5 rounded-full bg-brand-500 block" />
           <span class="text-sm font-bold text-white">Stockific</span>
         </div>
         <div class="flex items-center gap-6">

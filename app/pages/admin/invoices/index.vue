@@ -88,7 +88,7 @@ function onCreate() { navigateTo('/admin/invoices/new') }
       @filter="filterOpen = true"
     >
       <template #invoice_number-cell="{ row }">
-        <NuxtLink :to="`/admin/invoices/${row.original.id}`" class="font-mono text-xs font-semibold text-indigo-500 hover:underline">
+        <NuxtLink :to="`/admin/invoices/${row.original.id}`" class="font-mono text-xs font-semibold text-brand-500 hover:underline">
           {{ row.original.invoice_number }}
         </NuxtLink>
       </template>

@@ -131,7 +131,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
           :key="p.key"
           class="px-3 py-1.5 rounded-md text-sm font-medium transition-all"
           :class="period === p.key
-            ? 'bg-indigo-500 text-white shadow-sm'
+            ? 'bg-brand-500 text-white shadow-sm'
             : 'text-(--ui-text-muted) hover:text-(--ui-text-highlighted)'"
           @click="period = p.key"
         >
@@ -145,8 +145,8 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
 
       <UCard>
         <div class="flex items-start justify-between mb-3">
-          <div class="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-            <UIcon name="i-lucide-circle-dollar-sign" class="size-4 text-indigo-500" />
+          <div class="w-9 h-9 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center">
+            <UIcon name="i-lucide-circle-dollar-sign" class="size-4 text-brand-500" />
           </div>
           <span class="text-xs font-medium text-emerald-500 flex items-center gap-0.5">
             <UIcon name="i-lucide-trending-up" class="size-3" />+{{ revenueGrowth }}%
@@ -197,7 +197,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
             <p class="text-xs text-(--ui-text-muted)">{{ t('rep.monthly') }}</p>
           </div>
           <div class="text-right">
-            <p class="text-xl font-bold text-indigo-500">{{ rm(periodRevenue) }}</p>
+            <p class="text-xl font-bold text-brand-500">{{ rm(periodRevenue) }}</p>
             <p class="text-xs text-emerald-500">+{{ revenueGrowth }}% {{ t('rep.vsPrior') }}</p>
           </div>
         </div>
@@ -207,8 +207,8 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
         <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="w-full" preserveAspectRatio="none" style="height:140px">
           <defs>
             <linearGradient id="rptGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stop-color="#6366F1" stop-opacity="0.3" />
-              <stop offset="100%" stop-color="#6366F1" stop-opacity="0"   />
+              <stop offset="0%"   stop-color="var(--color-brand-500)" stop-opacity="0.3" />
+              <stop offset="100%" stop-color="var(--color-brand-500)" stop-opacity="0"   />
             </linearGradient>
           </defs>
           <!-- Horizontal guides -->
@@ -217,11 +217,11 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
           <!-- Fill area -->
           <path :d="fillPath" fill="url(#rptGrad)" />
           <!-- Line -->
-          <polyline :points="polyline" fill="none" stroke="#6366F1" stroke-width="2.5"
+          <polyline :points="polyline" fill="none" stroke="var(--color-brand-500)" stroke-width="2.5"
             stroke-linejoin="round" stroke-linecap="round" />
           <!-- Dots on data points -->
           <circle v-for="pt in chartPts" :key="pt.label"
-            :cx="pt.x" :cy="pt.y" r="3.5" fill="#6366F1" stroke="white" stroke-width="1.5" />
+            :cx="pt.x" :cy="pt.y" r="3.5" fill="var(--color-brand-500)" stroke="white" stroke-width="1.5" />
         </svg>
 
         <!-- X-axis labels -->
@@ -265,7 +265,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
             </div>
             <div class="h-1.5 rounded-full bg-(--ui-bg-elevated) overflow-hidden">
               <div
-                class="h-full rounded-full bg-indigo-500 transition-all duration-700"
+                class="h-full rounded-full bg-brand-500 transition-all duration-700"
                 :style="{ width: `${(p.revenue / maxProductRev) * 100}%`, opacity: 1 - i * 0.1 }"
 
               />
@@ -336,7 +336,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
             <p class="font-semibold text-(--ui-text-highlighted)">{{ t('rep.invHealth') }}</p>
             <p class="text-xs text-(--ui-text-muted)">{{ t('rep.stockLevels') }}</p>
           </div>
-          <NuxtLink to="/admin/products" class="text-xs text-(--ui-text-muted) hover:text-indigo-500 transition-colors">
+          <NuxtLink to="/admin/products" class="text-xs text-(--ui-text-muted) hover:text-brand-500 transition-colors">
             {{ t('rep.manageProds') }}
           </NuxtLink>
         </div>
@@ -350,7 +350,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
         </div>
         <div class="h-2.5 rounded-full overflow-hidden flex">
           <div
-            class="bg-indigo-500 transition-all duration-700"
+            class="bg-brand-500 transition-all duration-700"
             :style="{ width: `${(inventoryStats.healthy / inventoryStats.total) * 100}%` }"
           />
           <div
@@ -364,7 +364,7 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
         </div>
         <div class="flex items-center gap-6 mt-2">
           <div class="flex items-center gap-1.5">
-            <div class="w-2 h-2 rounded-full bg-indigo-500" />
+            <div class="w-2 h-2 rounded-full bg-brand-500" />
             <span class="text-xs text-(--ui-text-muted)">{{ t('rep.healthy') }} <strong class="text-(--ui-text-highlighted)">{{ inventoryStats.healthy }}</strong></span>
           </div>
           <div class="flex items-center gap-1.5">
