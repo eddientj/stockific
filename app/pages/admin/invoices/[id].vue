@@ -148,12 +148,14 @@ function shareWhatsApp() {
   const invNum = inv?.invoice_number ?? ''
   const amt    = `RM ${total.value.toFixed(2)}`
   const due    = dueDate.value ? ` Due: ${dueDate.value}.` : ''
+  const link   = inv?.share_token
+    ? `\n\nView invoice: ${window.location.origin}/invoice/${inv.share_token}`
+    : ''
 
   const msg = encodeURIComponent(
-    `Hi ${name}, please find your invoice ${invNum} for ${amt}.${due} Thank you!`
+    `Hi ${name}, please find your invoice ${invNum} for ${amt}.${due}${link}\n\nThank you!`
   )
 
-  // If we have a phone, pre-open their chat; otherwise just open WhatsApp with the message
   const base = phone ? `https://wa.me/${phone}` : 'https://wa.me'
   window.open(`${base}?text=${msg}`, '_blank')
 }

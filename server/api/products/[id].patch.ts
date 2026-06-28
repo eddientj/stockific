@@ -44,6 +44,7 @@ export default defineEventHandler(async (event) => {
       stock_quantity: Math.max(0, Math.min(99999, Math.floor(Number(v.stock_quantity) || 0))),
       stock_on_hold:  Math.max(0, Math.min(99999, Math.floor(Number(v.stock_on_hold) || 0))),
       price_override: v.price_override != null ? Number(v.price_override) || null : null,
+      reorder_level:  Math.max(0, Math.floor(Number(v.reorder_level) || 0)),
     }))
 
     const { error: insErr } = await supabase.from('variants').insert(rows)

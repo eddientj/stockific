@@ -42,15 +42,22 @@
 |---|---|---|
 | **CRM** | Leads, pipeline kanban, companies, activity log, lead→order conversion, CRM dashboard widget | Hide behind a feature flag. Not part of v1 launch. Re-surface as a paid upsell once core has traction. |
 
-### 🔨 Not built — needed for the wedge
+### 🔨 Not built — needed before test user release
 
-| Priority | Feature | Why | Status |
+| Priority | Feature | Why | Notes |
 |---|---|---|---|
-| **P0 (moat)** | **Shopee + Lazada stock sync** | The "make it big" lever; the differentiator | ⛔ **Gated on a feasibility spike** (Open Platform API access, rate limits, OAuth, cost). Resolve before touching the data model. |
-| **P1** | **Reorder alerts on dashboard** | Closes the core loop ("know what to reorder") | `reorder_level` column exists; surfacing not built |
-| **P1** | **Inventory valuation report** | cost_price × qty; basic IMS reporting | `cost_price` column exists; report not built |
-| **P2** | **Billing / subscription** | Required to charge (no manual steps) | HitPay keys stubbed in `.env`; not wired |
-| **P2** | **MyInvois e-invoice submission** | Compliance-ready toggle (not the wedge) | Not built; verify LHDN FAQ before building |
+| **P0** | **Reorder alerts on dashboard** | Closes the IMS core loop ("know what to reorder") | `reorder_level` column exists; just needs surfacing |
+| **P0** | **Invoice send — WhatsApp link + portal page** | The missing last mile; sellers still leave the app to bill | Token-based public invoice URL + `wa.me` pre-fill |
+| **P0** | **Tier system (DB only)** | Needed before handing out trial accounts | `tier` + `trial_expires_at` on `orgs`; quota + feature gates in code; no billing yet |
+| **P0** | **Platform admin panel** | Needed to provision and manage trial users | Assign tiers, extend trials, view all orgs |
+| **P1** | **Inventory valuation report** | cost × qty; basic IMS reporting | `cost_price` column exists; report not built |
+| **P1** | **Batch/lot tracking + expiry (FEFO)** | Pharma/F&B pain point — validated user research | `stock_lots` table, batch records per product, FEFO deduction, expiry alerts |
+| **P1** | **Barcode alias mapping** | Factory barcode ≠ store SKU; scan-once-map-forever | Store external barcode alias on product; parse GS1 AIs (batch `10`, expiry `17`) at receiving |
+| **P2** | **Public catalog page** | Subscriber gets a branded URL; products pulled from their catalog | Template-based, color + logo only; items from admin product catalog |
+| **P2** | **Staff roles within org** | Org owner vs staff (restricted: no settings, no billing, no delete) | Role field on org membership |
+| **P2** | **Billing / subscription** | Required to charge users | HitPay or Stripe recurring; defer until after test feedback |
+| **P3 (moat)** | **Shopee + Lazada stock sync** | The "make it big" lever; differentiator no cheap tool can match | ⛔ Gated on feasibility spike — API access, rate limits, OAuth, cost |
+| **Parked** | **MyInvois e-invoice submission** | Policy exempts sub-RM1m permanently; RM1m–RM5m band pushed to 2027 | Compliance-ready toggle when needed, not the wedge |
 
 > **Onboarding speed (<15 min, self-serve) is a feature, not an afterthought** — it's half the wedge. Guard it on every new addition.
 
@@ -58,12 +65,24 @@
 
 ## 📋 Working agenda (next up)
 
-In order. Items above the line are the immediate queue; the wedge work (P0–P2 above) follows.
+**Goal: get a functional IMS into test users' hands.** Items in order — complete P0 block first, then P1.
 
-1. **Fix the pipeline kanban board** — drag-and-drop is unreliable (no `dataTransfer` set on dragstart → fails in some browsers), plus snap-back/flicker on drop. CRM is frozen behind the flag, so this is a *fix-then-re-freeze* pass against the agreed kanban ACs, not new investment.
-2. **Design tokens propagate automatically on update** — when a brand/`--ui-*`/`--color-brand-*` token changes, every page should pick it up with no manual edits. Audit for any remaining hardcoded colours (e.g. `indigo-500` literals, hex values) and route them through the token system so a single change re-themes the whole app. (Today's teal→emerald fix was a symptom of this not being enforced.)
+### P0 — Ship to test users
+1. **Reorder alerts** — dashboard widget showing products below `reorder_level`. Quick win, `reorder_level` column already exists.
+2. **Invoice send** — WhatsApp share link (`wa.me` pre-fill) + token-based public invoice page. The missing last mile before any seller can complete their workflow inside the app.
+3. **Tier system** — `tier` enum + `trial_expires_at` on `orgs` table; quota checks (products/invoices/orders) with friendly upgrade nudge; feature gates hide locked menu items. Assign manually in DB — no payment flow yet.
+4. **Platform admin panel** — internal page to provision trial orgs, assign tiers, extend trial expiry, view all orgs.
 
-**Standardization sweep — DONE:** every list table = `AppDataTable` (search · filter · import · export · bulk · standardized empty with click-to-create); every entity create/edit form = `AppFormSlideover`; invoice editor + business settings are the two full-page forms. Remaining inline forms: only the PO-detail add-item/receive contextual modals.
+### P1 — Enhance from test feedback
+5. **Inventory valuation report** — `cost_price × qty` per product/category.
+6. **Batch/lot tracking** — `stock_lots` table, batch records with expiry date + quantity, FEFO picking, expiry alerts. Validated pain point for pharma/F&B/medical stores.
+7. **Barcode alias mapping** — scan factory barcode → link to internal SKU once → auto-resolve forever. Parse GS1-128/DataMatrix for batch + expiry at receiving when available.
+
+### Done ✅
+- Standardization sweep: every list = `AppDataTable`; every form = `AppFormSlideover`
+- Pipeline kanban: native HTML5 drag-to-reorder, UModal delete confirmation
+- Design tokens: all `indigo-*` → `brand-*`, all `#6366F1` → `var(--color-brand-500)` / `BRAND_HEX`
+- Logo assets: `public/logo.png` (horizontal) + `public/logo-icon.png` (icon)
 
 ---
 

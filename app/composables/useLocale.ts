@@ -153,6 +153,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'prod.noneCategory':   '— None —',
     'prod.stockHelp':      'Total units on hand',
     'prod.holdHelp':       'Reserved for unpaid orders',
+    'prod.reorderLevel':   'Reorder Level',
+    'prod.reorderHelp':    'Alert when stock drops to or below this number (0 = no alert)',
     'prod.image':          'Image',
     // ── Orders ─────────────────────────────
     'ord.title':        'Orders',
@@ -575,6 +577,8 @@ const translations: Record<Locale, Record<string, string>> = {
     'prod.noneCategory':   '— Tiada —',
     'prod.stockHelp':      'Jumlah unit yang ada',
     'prod.holdHelp':       'Ditempah untuk pesanan belum bayar',
+    'prod.reorderLevel':   'Tahap Pesanan Semula',
+    'prod.reorderHelp':    'Amaran apabila stok jatuh ke atau bawah nombor ini (0 = tiada amaran)',
     'prod.image':          'Imej',
     // ── Orders ─────────────────────────────
     'ord.title':        'Pesanan',

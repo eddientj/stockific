@@ -94,8 +94,9 @@ const stats = [
       :class="scrolled ? 'bg-[#0a1212]/90 backdrop-blur-md border-b border-white/5 shadow-xl' : 'bg-transparent'"
     >
       <div class="max-w-7xl mx-auto px-6 h-16 flex items-center gap-8">
-        <NuxtLink to="/" class="shrink-0 no-underline">
-          <img src="/logo.png" alt="Stockific" class="h-7 w-auto" />
+        <NuxtLink to="/" class="shrink-0 no-underline flex items-center gap-2">
+          <img src="/logo-icon.png" alt="" class="h-7 w-7 object-contain" />
+          <span class="text-sm font-bold tracking-tight text-white">Stockific</span>
         </NuxtLink>
 
         <nav class="hidden md:flex items-center gap-1 flex-1">

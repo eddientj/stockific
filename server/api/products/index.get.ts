@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
 
   let q = supabase
     .from('products')
-    .select('id, name, description, price, image_url, is_active, category_id, created_at, categories(name), variants(id, name, stock_quantity, stock_on_hold)')
+    .select('id, name, description, price, image_url, is_active, category_id, created_at, categories(name), variants(id, name, stock_quantity, stock_on_hold, reorder_level)')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 

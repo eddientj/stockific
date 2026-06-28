@@ -105,6 +105,7 @@ const productFields = computed((): FieldDef[] => [
   ]},
   { name: 'stock_quantity', label: t('prod.colAvailable'), type: 'number', min: 0, max: 99999, help: t('prod.stockHelp') },
   { name: 'stock_on_hold',  label: t('prod.colOnHold'),    type: 'number', min: 0, max: 99999, help: t('prod.holdHelp') },
+  { name: 'reorder_level',  label: t('prod.reorderLevel'), type: 'number', min: 0, max: 99999, help: t('prod.reorderHelp') },
   { name: 'image_url',      label: t('prod.image'),        type: 'image',   span: 2 },
 ])
 
@@ -115,7 +116,7 @@ const saving               = ref(false)
 
 const form = ref<Record<string, any>>({
   name: '', description: '', price: 0, image_url: '',
-  category_id: null, is_active: true, stock_quantity: 0, stock_on_hold: 0,
+  category_id: null, is_active: true, stock_quantity: 0, stock_on_hold: 0, reorder_level: 0,
 })
 
 function openNew()          { editingProduct.value = null; productSlideoverOpen.value = true }
@@ -133,6 +134,7 @@ watch(productSlideoverOpen, (v) => {
     is_active:      p ? p.is_active : true,
     stock_quantity: p?.variants?.[0]?.stock_quantity ?? 0,
     stock_on_hold:  p?.variants?.[0]?.stock_on_hold  ?? 0,
+    reorder_level:  p?.variants?.[0]?.reorder_level  ?? 0,
   }
 })
 
@@ -159,6 +161,7 @@ async function save() {
         name:           'Default',
         stock_quantity: Number(form.value.stock_quantity),
         stock_on_hold:  Number(form.value.stock_on_hold),
+        reorder_level:  Number(form.value.reorder_level) || 0,
       }],
     }
     if (editingProduct.value) {

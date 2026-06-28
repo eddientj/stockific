@@ -34,7 +34,7 @@ const totalProducts = computed(() => products.value?.length ?? 0)
 
 const lowStockItems = computed(() =>
   (products.value ?? [])
-    .filter(p => { const s = liveStock(p); return s > 0 && s <= 5 })
+    .filter(p => (p.variants ?? []).some(v => v.reorder_level > 0 && (v.stock_quantity - v.stock_on_hold) <= v.reorder_level))
     .sort((a, b) => liveStock(a) - liveStock(b))
     .slice(0, 6)
 )
@@ -486,10 +486,10 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
               <p class="text-xs text-(--ui-text-muted)">{{ p.categories?.name ?? '—' }}</p>
             </div>
             <div class="text-right shrink-0">
-              <p class="text-sm font-bold" :class="liveStock(p) <= 2 ? 'text-red-500' : 'text-amber-500'">
+              <p class="text-sm font-bold" :class="liveStock(p) === 0 ? 'text-red-500' : 'text-amber-500'">
                 {{ liveStock(p) }} left
               </p>
-              <p class="text-xs text-(--ui-text-muted)">{{ rm(Number(p.price)) }}</p>
+              <p class="text-xs text-(--ui-text-muted)">reorder at {{ (p.variants?.[0]?.reorder_level ?? 0) }}</p>
             </div>
           </div>
         </div>

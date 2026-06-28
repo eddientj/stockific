@@ -16,6 +16,7 @@ export type DbVariant = {
   stock_quantity: number
   stock_on_hold: number
   price_override: number | null
+  reorder_level: number
   created_at: string
 }
 
@@ -34,7 +35,7 @@ export type DbProduct = {
 // ── API response shapes (with joins) ─────────────────────────
 // What the server actually returns to the client.
 
-export type VariantRow = Pick<DbVariant, 'id' | 'name' | 'sku' | 'stock_quantity' | 'stock_on_hold' | 'price_override'>
+export type VariantRow = Pick<DbVariant, 'id' | 'name' | 'sku' | 'stock_quantity' | 'stock_on_hold' | 'price_override' | 'reorder_level'>
 
 export type ProductRow = DbProduct & {
   categories: Pick<DbCategory, 'name'> | null
@@ -50,6 +51,7 @@ export type VariantPayload = {
   stock_quantity: number
   stock_on_hold: number
   price_override?: number | null
+  reorder_level?: number
 }
 
 export type ExportColumn = { key: string; label: string }
@@ -223,6 +225,7 @@ export type InvoiceRow = {
   total: number
   notes: string | null
   payment_terms: string | null
+  share_token: string
   created_at: string
   updated_at: string
   customers: Pick<CustomerRow, 'name' | 'email'> | null
