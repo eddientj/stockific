@@ -1,6 +1,10 @@
 ﻿<script setup lang="ts">
 definePageMeta({ layout: false })
 
+// ── Auth state (so navbar shows Dashboard when logged in) ─
+const { user, init: initAuth } = useAuth()
+onMounted(() => { initAuth() })
+
 // ── Navbar scroll blur ────────────────────────────────────
 const scrolled = ref(false)
 onMounted(() => {
@@ -57,22 +61,63 @@ const steps = [
 // ── Pricing ───────────────────────────────────────────────
 const plans = [
   {
-    name: 'Starter', price: 'Free', period: 'forever',
-    desc: 'Perfect for small shops just getting started.',
-    features: ['Up to 100 products', '1 user account', 'Basic analytics', 'Excel export', 'Email support'],
+    name: 'Trial', price: 'Free', period: 'forever',
+    priceNote: null, promoNote: null,
+    desc: 'Start exploring — no card required.',
+    features: [
+      '30 products',
+      '50 invoices / month',
+      '20 orders / month',
+      'Email support',
+    ],
     cta: 'Get started free', highlight: false,
+    ctaTo: '/signup', ctaExternal: false,
   },
   {
-    name: 'Growth', price: 'RM 99', period: '/ month',
-    desc: 'Everything you need to run a growing retail business.',
-    features: ['Unlimited products', '5 user accounts', 'Full analytics suite', 'Order management', 'Bulk import / export', 'Priority support'],
-    cta: 'Start free trial', highlight: true,
+    name: 'Pro', price: 'RM 59.99', period: '/ month',
+    priceNote: 'Billed yearly — RM 599 / year', promoNote: null,
+    desc: 'More volume, CRM, and sales pipeline.',
+    features: [
+      '200 products',
+      '300 invoices / month',
+      '150 orders / month',
+      'CRM — leads, pipeline & companies',
+      'WhatsApp invoice sharing',
+      'Email & chat support',
+    ],
+    cta: 'Upgrade to Pro', highlight: false,
+    ctaTo: '/upgrade?plan=pro', ctaExternal: false,
   },
   {
-    name: 'Enterprise', price: 'Custom', period: '',
-    desc: 'For large operations with advanced requirements.',
-    features: ['Unlimited everything', 'Unlimited users', 'Custom integrations', 'Dedicated account manager', 'SLA guarantee', 'On-site training'],
-    cta: 'Contact sales', highlight: false,
+    name: 'Premium', price: 'RM 135', period: '/ month',
+    priceNote: 'Billed yearly — RM 1,620 / year', promoNote: '🎉 10% off — new launch promo',
+    desc: 'Full-featured operations for serious SMEs.',
+    features: [
+      '1,000 products',
+      'Unlimited invoices & orders',
+      'CRM — leads, pipeline & companies',
+      'Batch / Lot tracking with expiry alerts',
+      'CSV & Excel data export',
+      'Priority support',
+    ],
+    cta: 'Upgrade to Premium', highlight: true,
+    ctaTo: '/upgrade?plan=premium', ctaExternal: false,
+  },
+  {
+    name: 'Ultimate', price: 'RM 300', period: '/ month',
+    priceNote: 'Billed yearly — RM 3,000 / year', promoNote: null,
+    desc: 'No limits. Everything included, always.',
+    features: [
+      'Unlimited products',
+      'Unlimited invoices & orders',
+      'CRM — leads, pipeline & companies',
+      'Batch / Lot tracking with expiry alerts',
+      'CSV & Excel data export',
+      'Custom integrations & onboarding',
+      'Dedicated account manager',
+    ],
+    cta: 'Upgrade to Ultimate', highlight: false,
+    ctaTo: '/upgrade?plan=ultimate', ctaExternal: false,
   },
 ]
 
@@ -106,15 +151,25 @@ const stats = [
         </nav>
 
         <div class="flex items-center gap-3 ml-auto">
-          <NuxtLink to="/admin/products" class="text-sm text-white/50 hover:text-white transition-colors hidden sm:block">
-            Sign in
-          </NuxtLink>
-          <NuxtLink
-            to="/admin/products"
-            class="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-sm font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-brand-500/30"
-          >
-            Get started →
-          </NuxtLink>
+          <template v-if="user">
+            <NuxtLink
+              to="/admin"
+              class="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-sm font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-brand-500/30"
+            >
+              Dashboard →
+            </NuxtLink>
+          </template>
+          <template v-else>
+            <NuxtLink to="/login" class="text-sm text-white/50 hover:text-white transition-colors hidden sm:block">
+              Sign in
+            </NuxtLink>
+            <NuxtLink
+              to="/signup"
+              class="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-sm font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-brand-500/30"
+            >
+              Get started →
+            </NuxtLink>
+          </template>
         </div>
       </div>
     </header>
@@ -367,7 +422,7 @@ const stats = [
         </div>
 
         <div
-          class="grid md:grid-cols-3 gap-6 transition-all duration-700 delay-100"
+          class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 transition-all duration-700 delay-100"
           :class="pricingReveal.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'"
         >
           <div
@@ -383,31 +438,45 @@ const stats = [
             </div>
 
             <h3 class="text-white font-bold text-lg mb-1">{{ plan.name }}</h3>
-            <p class="text-white/35 text-sm mb-6">{{ plan.desc }}</p>
+            <p class="text-white/35 text-sm mb-5">{{ plan.desc }}</p>
 
-            <div class="flex items-baseline gap-1.5 mb-7">
+            <!-- Promo badge -->
+            <div v-if="plan.promoNote" class="mb-3 inline-flex self-start items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-xs font-semibold text-amber-400 whitespace-nowrap">
+              {{ plan.promoNote }}
+            </div>
+
+            <div class="flex items-baseline gap-1.5 mb-1">
               <span class="text-4xl font-bold" :class="plan.highlight ? 'text-brand-400' : 'text-white'">
                 {{ plan.price }}
               </span>
               <span class="text-white/35 text-sm">{{ plan.period }}</span>
             </div>
+            <p v-if="plan.priceNote" class="text-white/25 text-xs mb-5">{{ plan.priceNote }}</p>
+            <div v-else class="mb-5" />
 
             <ul class="space-y-2.5 mb-8 flex-1">
-              <li v-for="feat in plan.features" :key="feat" class="flex items-center gap-2.5 text-sm text-white/55">
-                <UIcon name="i-lucide-check" class="size-4 text-brand-500 shrink-0" />
+              <li v-for="feat in plan.features" :key="feat" class="flex items-start gap-2.5 text-sm text-white/60">
+                <UIcon name="i-lucide-check" class="size-4 text-brand-500 shrink-0 mt-0.5" />
                 {{ feat }}
               </li>
             </ul>
 
-            <NuxtLink
-              to="/admin/products"
-              class="block text-center py-3 rounded-xl font-semibold text-sm transition-all duration-200"
+            <a
+              v-if="plan.ctaExternal"
+              :href="plan.ctaTo"
+              class="block text-center py-3 rounded-xl font-semibold text-sm transition-all duration-200 no-underline"
               :class="plan.highlight
                 ? 'bg-brand-500 hover:bg-brand-400 text-white hover:shadow-lg hover:shadow-brand-500/25'
                 : 'border border-white/10 text-white/60 hover:bg-white/5 hover:text-white'"
-            >
-              {{ plan.cta }}
-            </NuxtLink>
+            >{{ plan.cta }}</a>
+            <NuxtLink
+              v-else
+              :to="plan.ctaTo"
+              class="block text-center py-3 rounded-xl font-semibold text-sm transition-all duration-200 no-underline"
+              :class="plan.highlight
+                ? 'bg-brand-500 hover:bg-brand-400 text-white hover:shadow-lg hover:shadow-brand-500/25'
+                : 'border border-white/10 text-white/60 hover:bg-white/5 hover:text-white'"
+            >{{ plan.cta }}</NuxtLink>
           </div>
         </div>
       </div>
@@ -437,7 +506,7 @@ const stats = [
 
           <div class="flex flex-wrap justify-center gap-4">
             <NuxtLink
-              to="/admin/products"
+              to="/signup"
               class="px-8 py-4 rounded-xl bg-brand-500 hover:bg-brand-400 text-white font-bold text-base transition-all duration-200 hover:shadow-xl hover:shadow-brand-500/30 hover:-translate-y-0.5"
             >
               Get started for free
