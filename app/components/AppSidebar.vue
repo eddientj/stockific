@@ -124,6 +124,9 @@ onUnmounted(() => {
       </div>
     </nav>
 
+    <!-- Bottom slot (e.g. tier nudge) -->
+    <slot name="bottom" :collapsed="collapsed" />
+
     <!-- Collapse toggle -->
     <div class="border-t border-(--ui-border) p-2 shrink-0">
       <button

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { locale, t, setLocale } = useLocale()
 const { signOut, displayName } = useAuth()
+const { tier, canAccess, trialDaysLeft } = useOrg()
 
 // ── Sidebar state (persisted) ─────────────────────────────────
 const sidebarCollapsed = ref(false)
@@ -11,49 +12,57 @@ onMounted(() => {
 watch(sidebarCollapsed, v => localStorage.setItem('sidebar-collapsed', String(v)))
 
 // ── Nav groups ────────────────────────────────────────────────
-const navGroups = computed(() => [
-  {
-    items: [
-      { to: '/admin', label: t('nav.dashboard'), icon: 'i-lucide-layout-dashboard', exact: true },
-    ],
-  },
-  {
-    label: t('nav.group.sales'),
-    items: [
-      { to: '/admin/orders',   label: t('nav.orders'),   icon: 'i-lucide-shopping-cart' },
-      { to: '/admin/invoices', label: t('nav.invoices'), icon: 'i-lucide-file-text'     },
-    ],
-  },
-  {
-    label: t('nav.group.inventory'),
-    items: [
-      { to: '/admin/products',        label: t('nav.products'),       icon: 'i-lucide-package'       },
-      { to: '/admin/categories',      label: t('nav.categories'),     icon: 'i-lucide-tag'           },
-      { to: '/admin/suppliers',       label: t('nav.suppliers'),      icon: 'i-lucide-truck'         },
-      { to: '/admin/purchase-orders', label: t('nav.purchaseOrders'), icon: 'i-lucide-clipboard-list' },
-    ],
-  },
-  {
-    label: t('nav.group.crm'),
-    items: [
-      { to: '/admin/leads',          label: t('nav.leads'),     icon: 'i-lucide-user-plus'  },
-      { to: '/admin/leads/pipeline', label: t('nav.pipeline'),  icon: 'i-lucide-kanban'     },
-      { to: '/admin/companies',      label: t('nav.companies'), icon: 'i-lucide-building-2' },
-    ],
-  },
-  {
-    label: t('nav.group.contacts'),
-    items: [
-      { to: '/admin/customers', label: t('nav.customers'), icon: 'i-lucide-users' },
-    ],
-  },
-  {
-    label: t('nav.group.analytics'),
-    items: [
-      { to: '/admin/reports', label: t('nav.reports'), icon: 'i-lucide-bar-chart-2' },
-    ],
-  },
-])
+const navGroups = computed(() => {
+  const groups = [
+    {
+      items: [
+        { to: '/admin', label: t('nav.dashboard'), icon: 'i-lucide-layout-dashboard', exact: true },
+      ],
+    },
+    {
+      label: t('nav.group.sales'),
+      items: [
+        { to: '/admin/orders',   label: t('nav.orders'),   icon: 'i-lucide-shopping-cart' },
+        { to: '/admin/invoices', label: t('nav.invoices'), icon: 'i-lucide-file-text'     },
+      ],
+    },
+    {
+      label: t('nav.group.inventory'),
+      items: [
+        { to: '/admin/products',        label: t('nav.products'),       icon: 'i-lucide-package'        },
+        { to: '/admin/categories',      label: t('nav.categories'),     icon: 'i-lucide-tag'            },
+        { to: '/admin/suppliers',       label: t('nav.suppliers'),      icon: 'i-lucide-truck'          },
+        { to: '/admin/purchase-orders', label: t('nav.purchaseOrders'), icon: 'i-lucide-clipboard-list' },
+        ...(canAccess('batchTracking') ? [{ to: '/admin/lots', label: t('nav.lots'), icon: 'i-lucide-layers' }] : []),
+      ],
+    },
+    {
+      label: t('nav.group.contacts'),
+      items: [
+        { to: '/admin/customers', label: t('nav.customers'), icon: 'i-lucide-users' },
+      ],
+    },
+    {
+      label: t('nav.group.analytics'),
+      items: [
+        { to: '/admin/reports', label: t('nav.reports'), icon: 'i-lucide-bar-chart-2' },
+      ],
+    },
+  ]
+
+  if (canAccess('crm')) {
+    groups.splice(3, 0, {
+      label: t('nav.group.crm'),
+      items: [
+        { to: '/admin/leads',          label: t('nav.leads'),     icon: 'i-lucide-user-plus'  },
+        { to: '/admin/leads/pipeline', label: t('nav.pipeline'),  icon: 'i-lucide-kanban'     },
+        { to: '/admin/companies',      label: t('nav.companies'), icon: 'i-lucide-building-2' },
+      ],
+    })
+  }
+
+  return groups
+})
 
 // ── Topbar menus ──────────────────────────────────────────────
 const settingsMenu = computed(() => [
@@ -85,7 +94,32 @@ function toggleTheme() {
   <div class="flex min-h-screen bg-(--ui-bg-muted)">
 
     <!-- ── Sidebar ─────────────────────────────────────────── -->
-    <AppSidebar v-model:collapsed="sidebarCollapsed" :groups="navGroups" />
+    <AppSidebar v-model:collapsed="sidebarCollapsed" :groups="navGroups">
+      <template #bottom="{ collapsed }">
+        <div
+          v-if="tier === 'trial'"
+          class="mx-2 mb-2 rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) overflow-hidden"
+        >
+          <div v-if="!collapsed" class="p-3 space-y-1.5">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-(--color-brand-500) text-white">Trial</span>
+            </div>
+            <p v-if="trialDaysLeft !== null" class="text-xs text-(--ui-text-muted)">
+              {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} remaining
+            </p>
+            <NuxtLink
+              to="/admin/settings"
+              class="block text-center text-xs font-medium py-1 px-2 rounded bg-(--color-brand-500) text-white hover:opacity-90 transition-opacity no-underline"
+            >Upgrade</NuxtLink>
+          </div>
+          <div v-else class="flex justify-center py-2">
+            <UTooltip text="Trial plan — Upgrade" side="right">
+              <span class="text-[10px] font-bold px-1 py-0.5 rounded bg-(--color-brand-500) text-white leading-none">T</span>
+            </UTooltip>
+          </div>
+        </div>
+      </template>
+    </AppSidebar>
 
     <!-- ── Right panel ────────────────────────────────────── -->
     <div class="flex-1 flex flex-col min-w-0">

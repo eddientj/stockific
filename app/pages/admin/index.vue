@@ -114,6 +114,13 @@ const fillPath = computed(() => {
   return `M${first.x},${SVG_H} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${last.x},${SVG_H} Z`
 })
 
+// ── Batch expiry (premium+) ───────────────────────────────
+const { canAccess } = useOrg()
+const { data: expiringLots } = await useFetch<any[]>('/api/lots', {
+  query: { expiring_days: 30 },
+  default: () => [],
+})
+
 // ── CRM ───────────────────────────────────────────────────
 const pipeline     = computed(() => crm.value?.pipeline   ?? [])
 const followUps    = computed(() => crm.value?.followUps  ?? [])
@@ -496,6 +503,39 @@ const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : rm(n)
       </UCard>
 
     </div>
+
+    <!-- ── Expiry alerts (premium+) ──────────────────────── -->
+    <UCard v-if="canAccess('batchTracking') && expiringLots && expiringLots.length > 0">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('dash.expiryTitle') }}</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('dash.expirySub') }}</p>
+          </div>
+          <NuxtLink to="/admin/lots" class="text-xs text-(--ui-text-muted) hover:text-brand-500 transition-colors no-underline">
+            {{ t('dash.viewLots') }}
+          </NuxtLink>
+        </div>
+      </template>
+
+      <div class="divide-y divide-(--ui-border)">
+        <div v-for="lot in expiringLots.slice(0, 6)" :key="lot.id" class="flex items-center justify-between py-3 gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-(--ui-text-highlighted) truncate">{{ lot.products?.name }}</p>
+            <p class="text-xs text-(--ui-text-muted)">
+              {{ lot.variants?.name }}
+              <span v-if="lot.batch_number" class="font-mono"> · {{ lot.batch_number }}</span>
+            </p>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="text-xs font-semibold text-amber-500">
+              {{ new Date(lot.expiry_date + 'T00:00:00').toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) }}
+            </p>
+            <p class="text-xs text-(--ui-text-muted)">{{ lot.qty_remaining }} units left</p>
+          </div>
+        </div>
+      </div>
+    </UCard>
 
   </div>
 </template>

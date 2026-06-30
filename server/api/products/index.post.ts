@@ -2,6 +2,7 @@ import type { ProductPayload } from '~~/app/types'
 
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireAuth(event)
+  await checkProductQuota(orgId)
   const body = await readJsonBody<ProductPayload>(event)
 
   const name        = requireString(body as any, 'name', 200)

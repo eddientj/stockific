@@ -16,7 +16,7 @@ async function seedDemoData() {
     await $fetch('/api/seed', { method: 'POST' })
     toast.success('Demo data seeded')
   } catch (e: any) {
-    toast.error(e.data?.message ?? 'Seed failed')
+    toast.error(e.data?.statusMessage ?? e?.message ?? 'Seed failed')
   } finally {
     seeding.value = false
   }

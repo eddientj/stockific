@@ -6,9 +6,6 @@
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireAuth(event)
 
-  if (process.env.NODE_ENV === 'production')
-    throw createError({ statusCode: 403, statusMessage: 'Seeding not allowed in production' })
-
   const supabase = useSupabaseAdmin()
 
   // ── 1. Upsert categories ──────────────────────────────────
@@ -183,12 +180,50 @@ export default defineEventHandler(async (event) => {
     price_override: null,
   }))
 
-  const { error: varErr } = await supabase.from('variants').insert(variantRows)
+  const { data: insertedVariants, error: varErr } = await supabase.from('variants').insert(variantRows).select('id')
   if (varErr) throw createError({ statusCode: 500, statusMessage: varErr.message })
 
+  // ── 6. Delete old lots and seed new ones ─────────────────
+  await supabase.from('stock_lots').delete().eq('org_id', orgId)
+
+  const today = new Date().toISOString().slice(0, 10)
+  const dateOffset = (days: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + days)
+    return d.toISOString().slice(0, 10)
+  }
+
+  // Seed lots for first 15 variants with varied expiry scenarios
+  const lotPatterns = [
+    { batch: 'A', expiryDays: 10,  qty: 80,  cost: null },   // expiring soon
+    { batch: 'B', expiryDays: -7,  qty: 20,  cost: null },   // expired
+    { batch: 'C', expiryDays: 180, qty: 150, cost: null },   // healthy
+  ]
+
+  const variantSlice = (insertedVariants ?? []).slice(0, 15)
+  const productSlice = (insertedProducts ?? []).slice(0, 15)
+
+  const lotRows = variantSlice.flatMap((v, i) =>
+    lotPatterns.map(p => ({
+      org_id:        orgId,
+      variant_id:    v.id,
+      product_id:    productSlice[i]?.id ?? null,
+      batch_number:  `LOT-SEED-${String(i + 1).padStart(2, '0')}-${p.batch}`,
+      expiry_date:   dateOffset(p.expiryDays),
+      qty_received:  p.qty,
+      qty_remaining: p.expiryDays < 0 ? Math.floor(p.qty * 0.3) : p.qty,
+      unit_cost:     p.cost,
+      received_at:   today,
+    }))
+  )
+
+  const { error: lotErr } = await supabase.from('stock_lots').insert(lotRows)
+  if (lotErr) throw createError({ statusCode: 500, statusMessage: lotErr.message })
+
   return {
-    ok: true,
-    seeded: products.length,
+    ok:         true,
+    seeded:     products.length,
     categories: categoryNames.length,
+    lots:       lotRows.length,
   }
 })

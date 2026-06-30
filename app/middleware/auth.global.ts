@@ -1,5 +1,7 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (!to.path.startsWith('/admin')) return
+  const isAdmin    = to.path.startsWith('/admin')
+  const isPlatform = to.path.startsWith('/platform')
+  if (!isAdmin && !isPlatform) return
   if (import.meta.server) return // session checked client-side after hydration
 
   const { $supabase } = useNuxtApp()
@@ -7,5 +9,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (!session) return navigateTo('/login')
 
-  if (!decodeJwt(session.access_token).org_id) return navigateTo('/onboarding')
+  // Admin requires an org; platform admin check is handled server-side
+  if (isAdmin && !decodeJwt(session.access_token).org_id) return navigateTo('/onboarding')
 })

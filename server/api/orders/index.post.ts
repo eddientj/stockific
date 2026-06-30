@@ -1,5 +1,6 @@
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireAuth(event)
+  await checkOrderQuota(orgId)
   const supabase = useSupabaseAdmin()
   const body = await readBody(event)
 

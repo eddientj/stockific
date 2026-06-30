@@ -109,9 +109,35 @@ const inventoryStats = computed(() => {
   return { total, healthy, low, out }
 })
 
+// ── Inventory valuation ───────────────────────────────────────
+type ValuationVariant = {
+  variant_id: string; variant_name: string; sku: string | null
+  cost_price: number | null; live_stock: number; value: number
+}
+type ValuationRow = {
+  product_id: string; product_name: string; category_name: string | null
+  is_active: boolean; variants: ValuationVariant[]
+  total_units: number; total_value: number
+}
+type ValuationData = {
+  total_value: number; total_units: number
+  products_with_cost: number; products_total: number
+  rows: ValuationRow[]
+}
+
+const { data: valuation } = await useFetch<ValuationData>('/api/reports/valuation')
+const expandedProducts = ref<Set<string>>(new Set())
+
+function toggleExpand(id: string) {
+  if (expandedProducts.value.has(id)) expandedProducts.value.delete(id)
+  else expandedProducts.value.add(id)
+  expandedProducts.value = new Set(expandedProducts.value)
+}
+
 // ── Helpers ───────────────────────────────────────────────────
 const rmK = (n: number) => n >= 1000 ? `RM ${(n / 1000).toFixed(1)}k` : `RM ${n.toFixed(0)}`
 const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigits: 0 })}`
+const rm2 = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 </script>
 
 <template>
@@ -395,6 +421,108 @@ const rm  = (n: number) => `RM ${n.toLocaleString('en-MY', { minimumFractionDigi
             <p class="text-[10px] text-(--ui-text-muted)">{{ t('rep.ofRevenue') }}</p>
           </div>
         </div>
+      </div>
+
+    </UCard>
+
+    <!-- ── Inventory valuation ──────────────────────────────── -->
+    <UCard>
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-semibold text-(--ui-text-highlighted)">{{ t('rep.valTitle') }}</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('rep.valSubtitle') }}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xl font-bold text-brand-500">{{ rm2(valuation?.total_value ?? 0) }}</p>
+            <p class="text-xs text-(--ui-text-muted)">{{ t('rep.valTotal') }}</p>
+          </div>
+        </div>
+      </template>
+
+      <!-- Summary row -->
+      <div class="grid grid-cols-3 gap-4 mb-5">
+        <div class="rounded-xl bg-(--ui-bg-elevated) border border-(--ui-border) px-4 py-3 text-center">
+          <p class="text-lg font-bold text-(--ui-text-highlighted)">{{ rm2(valuation?.total_value ?? 0) }}</p>
+          <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('rep.valStockValue') }}</p>
+        </div>
+        <div class="rounded-xl bg-(--ui-bg-elevated) border border-(--ui-border) px-4 py-3 text-center">
+          <p class="text-lg font-bold text-(--ui-text-highlighted)">{{ (valuation?.total_units ?? 0).toLocaleString('en-MY') }}</p>
+          <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('rep.valUnits') }}</p>
+        </div>
+        <div class="rounded-xl bg-(--ui-bg-elevated) border border-(--ui-border) px-4 py-3 text-center">
+          <p class="text-lg font-bold text-(--ui-text-highlighted)">
+            {{ valuation?.products_with_cost ?? 0 }} / {{ valuation?.products_total ?? 0 }}
+          </p>
+          <p class="text-xs text-(--ui-text-muted) mt-0.5">{{ t('rep.valCostSet') }}</p>
+        </div>
+      </div>
+
+      <!-- Product table -->
+      <div class="rounded-xl border border-(--ui-border) overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-(--ui-bg-elevated) border-b border-(--ui-border)">
+            <tr>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">{{ t('rep.valProduct') }}</th>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">{{ t('rep.valCategory') }}</th>
+              <th class="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">{{ t('rep.valUnitsCol') }}</th>
+              <th class="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-(--ui-text-muted)">{{ t('rep.valValue') }}</th>
+              <th class="w-8" />
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-(--ui-border)">
+            <template v-for="row in valuation?.rows" :key="row.product_id">
+              <!-- Product row -->
+              <tr
+                class="bg-(--ui-bg) hover:bg-(--ui-bg-elevated) transition-colors cursor-pointer"
+                @click="toggleExpand(row.product_id)"
+              >
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                      :class="row.is_active ? 'bg-emerald-400' : 'bg-(--ui-text-muted)'"
+                    />
+                    <span class="font-medium text-(--ui-text-highlighted)">{{ row.product_name }}</span>
+                    <span v-if="row.variants.length > 1" class="text-xs text-(--ui-text-muted)">({{ row.variants.length }} variants)</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-(--ui-text-muted) text-xs">{{ row.category_name ?? '—' }}</td>
+                <td class="px-4 py-3 text-right text-(--ui-text-muted)">{{ row.total_units.toLocaleString('en-MY') }}</td>
+                <td class="px-4 py-3 text-right font-semibold" :class="row.total_value > 0 ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)'">
+                  {{ row.total_value > 0 ? rm2(row.total_value) : '—' }}
+                </td>
+                <td class="px-3 py-3">
+                  <UIcon
+                    :name="expandedProducts.has(row.product_id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                    class="size-4 text-(--ui-text-muted)"
+                  />
+                </td>
+              </tr>
+              <!-- Expanded variant rows -->
+              <template v-if="expandedProducts.has(row.product_id)">
+                <tr
+                  v-for="v in row.variants"
+                  :key="v.variant_id"
+                  class="bg-(--ui-bg-elevated)/50"
+                >
+                  <td class="px-4 py-2 pl-10">
+                    <span class="text-xs text-(--ui-text-muted)">{{ v.variant_name }}</span>
+                    <span v-if="v.sku" class="ml-2 text-[10px] text-(--ui-text-muted) font-mono">{{ v.sku }}</span>
+                  </td>
+                  <td class="px-4 py-2 text-xs text-(--ui-text-muted)">
+                    {{ v.cost_price != null ? `${rm2(v.cost_price)} / unit` : t('rep.valNoCost') }}
+                  </td>
+                  <td class="px-4 py-2 text-right text-xs text-(--ui-text-muted)">{{ v.live_stock }}</td>
+                  <td class="px-4 py-2 text-right text-xs" :class="v.value > 0 ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)'">
+                    {{ v.value > 0 ? rm2(v.value) : '—' }}
+                  </td>
+                  <td />
+                </tr>
+              </template>
+            </template>
+          </tbody>
+        </table>
       </div>
 
     </UCard>

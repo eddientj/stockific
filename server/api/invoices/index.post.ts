@@ -2,6 +2,7 @@ import type { InvoicePayload } from '~~/app/types'
 
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireAuth(event)
+  await checkInvoiceQuota(orgId)
   const body = await readJsonBody<InvoicePayload>(event)
   const supabase = useSupabaseAdmin()
 

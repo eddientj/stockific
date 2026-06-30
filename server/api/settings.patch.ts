@@ -14,8 +14,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('business_settings')
-    .update(patch)
-    .eq('org_id', orgId)
+    .upsert({ ...patch, org_id: orgId }, { onConflict: 'org_id' })
     .select()
     .single()
 
