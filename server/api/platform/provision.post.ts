@@ -18,13 +18,19 @@ export default defineEventHandler(async (event) => {
     email: email.trim(),
     password: password.trim(),
     email_confirm: true,
+    user_metadata: { first_name: business_name.trim() },
   })
   if (authError) throw createError({ statusCode: 400, statusMessage: authError.message })
 
   const userId = authData.user.id
 
-  // 2 — create profile
-  await supabase.from('profiles').insert({ id: userId, full_name: business_name.trim() })
+  // 2 — create profile (username derived from email prefix, lowercased, non-alphanumeric stripped)
+  const username = email.trim().split('@')[0]!.toLowerCase().replace(/[^a-z0-9_]/g, '')
+  await supabase.from('profiles').insert({
+    id:         userId,
+    username,
+    first_name: business_name.trim(),
+  })
 
   // 3 — create org via RPC
   const { data: orgId, error: orgError } = await supabase.rpc('create_organisation', {
