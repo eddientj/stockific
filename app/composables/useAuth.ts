@@ -19,10 +19,12 @@ export function useAuth() {
   function orgId(): string | null  { return jwtClaim('org_id') }
   function orgRole(): string | null { return jwtClaim('org_role') }
 
-  const displayName = computed<string | null>(() => {
+  const displayName = computed<string>(() => {
     const meta = user.value?.user_metadata
-    if (!meta?.first_name) return null
-    return meta.last_name ? `${meta.first_name} ${meta.last_name}` : meta.first_name
+    if (meta?.first_name) {
+      return meta.last_name ? `${meta.first_name} ${meta.last_name}` : meta.first_name
+    }
+    return user.value?.email ?? ''
   })
 
   async function init() {
@@ -79,7 +81,7 @@ export function useAuth() {
     return data
   }
 
-  async function updateProfile(data: { first_name?: string; last_name?: string }) {
+  async function updateProfile(data: { first_name?: string; last_name?: string; username?: string }) {
     const { error } = await $supabase.auth.updateUser({ data })
     if (error) throw error
     if (user.value) {

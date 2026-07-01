@@ -4,23 +4,23 @@ definePageMeta({ layout: 'admin' })
 const { user, updateProfile, updatePassword } = useAuth()
 const toast = useAppToast()
 
-const profile = reactive({ firstName: '', lastName: '' })
+const profile = reactive({ firstName: '', lastName: '', username: '' })
 watchEffect(() => {
   const meta = user.value?.user_metadata
   if (meta) {
     profile.firstName = meta.first_name ?? ''
     profile.lastName  = meta.last_name  ?? ''
+    profile.username  = meta.username   ?? ''
   }
 })
-const username = computed(() => user.value?.user_metadata?.username ?? '')
-const email    = computed(() => user.value?.email ?? '')
+const email = computed(() => user.value?.email ?? '')
 
 const profileLoading = ref(false)
 
 async function saveProfile() {
   profileLoading.value = true
   try {
-    await updateProfile({ first_name: profile.firstName.trim(), last_name: profile.lastName.trim() || undefined })
+    await updateProfile({ first_name: profile.firstName.trim(), last_name: profile.lastName.trim() || undefined, username: profile.username.trim() || undefined })
     toast.success('Profile updated')
   } catch (e: any) {
     toast.error(e.message ?? 'Failed to update profile')
@@ -74,7 +74,7 @@ async function savePassword() {
         </div>
 
         <UFormField label="Username">
-          <UInput :model-value="username" disabled class="w-full" />
+          <UInput v-model="profile.username" placeholder="your-username" class="w-full" />
         </UFormField>
 
         <UFormField label="Email">

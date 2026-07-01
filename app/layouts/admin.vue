@@ -88,6 +88,8 @@ const isDark = computed(() => colorMode.preference === 'dark')
 function toggleTheme() {
   colorMode.preference = isDark.value ? 'light' : 'dark'
 }
+
+const upgradeOpen = ref(false)
 </script>
 
 <template>
@@ -96,25 +98,49 @@ function toggleTheme() {
     <!-- ── Sidebar ─────────────────────────────────────────── -->
     <AppSidebar v-model:collapsed="sidebarCollapsed" :groups="navGroups">
       <template #bottom="{ collapsed }">
+        <!-- Trial upgrade prompt -->
         <div
           v-if="tier === 'trial'"
           class="mx-2 mb-2 rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) overflow-hidden"
         >
           <div v-if="!collapsed" class="p-3 space-y-1.5">
-            <div class="flex items-center gap-1.5">
-              <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-(--color-brand-500) text-white">Trial</span>
-            </div>
+            <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-(--color-brand-500) text-white">Trial</span>
             <p v-if="trialDaysLeft !== null" class="text-xs text-(--ui-text-muted)">
               {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} remaining
             </p>
-            <NuxtLink
-              to="/admin/settings"
-              class="block text-center text-xs font-medium py-1 px-2 rounded bg-(--color-brand-500) text-white hover:opacity-90 transition-opacity no-underline"
-            >Upgrade</NuxtLink>
+            <p class="text-xs text-(--ui-text-muted)">Upgrade to keep full access after your trial ends.</p>
+            <button
+              class="block w-full text-center text-xs font-medium py-1 px-2 rounded bg-(--color-brand-500) text-white hover:opacity-90 transition-opacity cursor-pointer border-0"
+              @click="upgradeOpen = true"
+            >Contact us to upgrade</button>
           </div>
           <div v-else class="flex justify-center py-2">
-            <UTooltip text="Trial plan — Upgrade" side="right">
-              <span class="text-[10px] font-bold px-1 py-0.5 rounded bg-(--color-brand-500) text-white leading-none">T</span>
+            <UTooltip text="Trial — contact us to upgrade" side="right">
+              <button class="border-0 bg-transparent p-0 cursor-pointer" @click="upgradeOpen = true">
+                <span class="text-[10px] font-bold px-1 py-0.5 rounded bg-(--color-brand-500) text-white leading-none">T</span>
+              </button>
+            </UTooltip>
+          </div>
+        </div>
+
+        <!-- Pro upgrade prompt -->
+        <div
+          v-else-if="tier === 'pro'"
+          class="mx-2 mb-2 rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) overflow-hidden"
+        >
+          <div v-if="!collapsed" class="p-3 space-y-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500 text-white">Pro</span>
+            <p class="text-xs text-(--ui-text-muted)">Upgrade to Premium for batch tracking, CRM, and unlimited products.</p>
+            <button
+              class="block w-full text-center text-xs font-medium py-1 px-2 rounded bg-amber-500 text-white hover:opacity-90 transition-opacity cursor-pointer border-0"
+              @click="upgradeOpen = true"
+            >Contact us to upgrade</button>
+          </div>
+          <div v-else class="flex justify-center py-2">
+            <UTooltip text="Pro — contact us to upgrade" side="right">
+              <button class="border-0 bg-transparent p-0 cursor-pointer" @click="upgradeOpen = true">
+                <span class="text-[10px] font-bold px-1 py-0.5 rounded bg-amber-500 text-white leading-none">P</span>
+              </button>
             </UTooltip>
           </div>
         </div>
@@ -128,7 +154,6 @@ function toggleTheme() {
       <header class="topbar h-14 border-b border-(--ui-border) flex items-center justify-end px-5 gap-1 shrink-0">
 
         <NuxtLink
-          v-if="displayName"
           to="/admin/profile"
           class="text-sm font-medium px-2 py-1.5 rounded-md text-(--ui-text-muted) hover:text-(--ui-text-highlighted) hover:bg-(--ui-bg-elevated) transition-colors whitespace-nowrap no-underline"
         >{{ displayName }}</NuxtLink>
@@ -165,6 +190,8 @@ function toggleTheme() {
       </main>
 
     </div>
+
+    <AppUpgradeModal v-model:open="upgradeOpen" />
   </div>
 </template>
 
